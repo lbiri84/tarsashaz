@@ -198,6 +198,7 @@ function homeView() {
   return `${!ME.flat && !ME.manager ? '<div class="warn">A fiókod még nincs lakáshoz rendelve. Szólj a kezelőnek.</div>' : ''}
   ${hero}
   ${ME.manager ? `<div class="btns">${op ? `<a class="btn p" href="#/tetel/uj">+ Új tétel</a>` : `<a class="btn p" href="#/idoszakok">Új időszak</a>`}<a class="btn" href="#/viz/uj">Vízóra-leolvasás</a></div>` : ''}
+  ${ME.manager && !D.periods.length ? '<div class="warn">Az elszámoló még üres. A régi adatokat a <a href="#/beallitasok">Beállítások</a> oldalon töltheted be, vagy indíts egy új időszakot.</div>' : ''}
   <h2>Nyitott elszámolás</h2>
   ${op ? `<a class="card" href="#/idoszak/${op.id}"><div class="row"><b>${esc(op.name)}</b><span class="pill open sp">nyitott</span></div>
     <div class="small muted">${itemsOf(op.id).length} tétel · összesen <span class="num">${ft(itemsOf(op.id).reduce((a, i) => a + i.amount, 0))}</span></div>
@@ -361,7 +362,8 @@ function readingView() {
 function statsView(year) {
   const years = [...new Set(D.periods.map(p => p.starts_on.slice(0, 4)))].sort().reverse();
   const y = year || years[0];
-  if (!y) return '<h1>Kimutatás</h1><p class="muted">Még nincs adat.</p>';
+  const setLink = ME.manager ? '<h2>Beállítások</h2><div class="btns one"><a class="btn" href="#/beallitasok">Tulajdoni hányad, lakók száma, régi adatok</a></div>' : '';
+  if (!y) return `<h1>Kimutatás</h1><p class="muted">Még nincs adat.</p>${setLink}`;
   const pids = new Set(D.periods.filter(p => p.starts_on.startsWith(y)).map(p => p.id));
   const its = D.items.filter(i => pids.has(i.period_id));
   const t = Object.fromEntries(FLATS.map(f => [f, Object.fromEntries(GROUPS.map(g => [g[0], 0]))]));
@@ -388,7 +390,7 @@ function statsView(year) {
   <div class="card small"><div class="row"><span>Összes közös költség ${y}-ben</span><b class="sp num">${ft(its.reduce((a, i) => a + i.amount, 0))}</b></div></div>
   ${garden.length ? `<h2>Kerti csap (a főmérő és a lakások különbsége)</h2><div class="card"><div class="vbars">${garden.map(g => `<div><span class="num">${m3(g[1])}</span><b style="height:${(g[1] / gmax * 100).toFixed(0)}%"></b></div>`).join('')}</div>
     <div class="vlab">${garden.map(g => `<span>${new Date(g[0] + 'T12:00:00').toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })}</span>`).join('')}</div></div>` : ''}
-  ${ME.manager ? '<h2>Beállítások</h2><div class="btns one"><a class="btn" href="#/beallitasok">Tulajdoni hányad, lakók száma</a></div>' : ''}`;
+  ${setLink}`;
 }
 
 function settingsView() {
