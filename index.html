@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="hu" data-theme="slate">
+<head>
+<meta charset="utf-8">
+<!-- Belépési kapu (https://laszlobiri.com/lib/v1/gate.js): belépés nélkül azonnal a belépőoldalra
+     irányít; a kapu azt is ellenőrzi, hogy a felhasználó megnyithatja-e a társasház oldalt. -->
+<style id="lb-gate">html{visibility:hidden}</style>
+<script>/* lb-gate */if(!/(?:^|;\s*)sb-[a-z0-9]+-auth-token(?:\.0)?=/.test(document.cookie))location.replace('https://laszlobiri.com/belepes/?next='+encodeURIComponent(location.href))</script>
+<script type="module" src="https://laszlobiri.com/lib/v1/gate.js"></script>
+<script type="module" src="https://laszlobiri.com/lib/v1/auth-badge.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#293c4b">
+<meta name="robots" content="noindex, nofollow">
+<title>Társasház</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://laszlobiri.com/design-system/tokens.css">
+<style>
+  /* A laszlobiri design system alapján (tokens.css), palakék téma. */
+  :root { color-scheme: dark;
+    /* Kategóriaszínek a kimutatáshoz: a validált sorrend (víz-csatorna, szemét, villany, egyéb). */
+    --s-viz: #3987e5; --s-szemet: #d95926; --s-villany: #199e70; --s-egyeb: #c98500;
+    --ok: #7fd4a8; --ok-line: #4f9c76; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { background: var(--bg); }
+  body { margin: 0 auto; max-width: 720px; min-height: 100dvh; padding: calc(16px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));
+    background: var(--bg); color: var(--fg); font-family: var(--font-sans); font-size: 16px; line-height: 24px; -webkit-font-smoothing: antialiased; }
+  .mk { width: 30px; height: auto; flex: none; } .mk .l{fill:var(--mark-l)} .mk .b{fill:var(--mark-b)}
+  a { color: var(--accent-text); }
+  header.top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  header.top .t { font-weight: 600; font-size: 18px; }
+  header.top .me { margin-left: auto; font-size: 13px; color: var(--fg-muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 10px; white-space: nowrap; }
+  h1 { font-size: 26px; line-height: 32px; margin: 4px 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 13px; line-height: 18px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-muted); font-weight: 600; margin: 22px 0 8px; }
+  .muted { color: var(--fg-muted); } .small { font-size: 13px; line-height: 18px; }
+  .back { display: inline-block; font-size: 14px; color: var(--fg-muted); text-decoration: none; min-height: 32px; }
+  .card { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 10px; }
+  a.card { display: block; color: inherit; text-decoration: none; }
+  .hero { background: var(--accent); color: #000; border: 0; }
+  .hero .big { font-size: 32px; line-height: 38px; font-weight: 700; letter-spacing: -0.02em; }
+  .hero.even { background: var(--bg-raised); color: var(--fg); border: 1px solid var(--line); }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .sp { margin-left: auto; }
+  .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pill { font-size: 12px; line-height: 18px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-muted); white-space: nowrap; }
+  .pill.open { color: var(--accent-text); border-color: var(--accent-text); } .pill.ok { color: var(--ok); border-color: var(--ok-line); }
+  button, .btn { font: inherit; font-weight: 600; border-radius: 999px; padding: 10px 16px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; min-height: 44px; text-align: center; text-decoration: none; display: inline-block; }
+  button.p, .btn.p { background: var(--accent); color: #000; border-color: var(--accent); }
+  button.danger { color: var(--accent-text); }
+  button:disabled { opacity: .5; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; } .btns.one { grid-template-columns: 1fr; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { padding: 7px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  th { font-size: 12px; font-weight: 500; color: var(--fg-muted); }
+  td:first-child, th:first-child { text-align: left; } tr:last-child td { border-bottom: 0; }
+  tr.tot td { font-weight: 700; border-top: 1px solid var(--fg-muted); }
+  .scroll { overflow-x: auto; }
+  .item { display: grid; grid-template-columns: 10px 1fr auto; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+  .item:last-child { border-bottom: 0; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; margin-top: 7px; }
+  .item .n { font-weight: 600; } .item .m { grid-column: 2 / 4; font-size: 13px; line-height: 18px; color: var(--fg-muted); }
+  .field { margin-bottom: 14px; } .field > .l { font-size: 13px; color: var(--fg-muted); margin-bottom: 4px; display: block; }
+  input[type=text], input[type=number], input[type=date], select { font: inherit; color: var(--fg); background: var(--bg-raised); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 44px; width: 100%; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg label { border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 14px; cursor: pointer; min-height: 36px; display: inline-flex; align-items: center; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label:has(input:checked) { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
+  .seg label:has(input:focus-visible) { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .split { display: grid; grid-template-columns: 52px 1fr 90px; gap: 6px 10px; align-items: center; font-size: 14px; }
+  .bar { height: 10px; border-radius: 4px; background: var(--fg-muted); opacity: .8; min-width: 2px; }
+  .grid4 { display: grid; grid-template-columns: 64px 1fr 1fr 64px; gap: 6px 8px; align-items: center; font-size: 14px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid4 .h { font-size: 12px; color: var(--fg-muted); } .r { text-align: right; }
+  .warn { border-left: 3px solid var(--accent); padding: 8px 12px; background: rgba(238,134,67,.08); border-radius: 0 10px 10px 0; font-size: 14px; margin: 10px 0; }
+  .msg { min-height: 24px; color: var(--fg-muted); font-size: 14px; } .msg.err { color: var(--accent-text); }
+  .tr { display: grid; grid-template-columns: auto auto 1fr auto; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .tr:last-child { border-bottom: 0; }
+  .tag { font-weight: 700; border: 1px solid var(--fg-muted); border-radius: 6px; padding: 0 6px; font-size: 14px; }
+  .tr input[type=checkbox] { width: 24px; height: 24px; accent-color: var(--ok-line); }
+  pre.chat { white-space: pre-wrap; font-family: var(--font-sans); font-size: 13px; line-height: 19px; margin: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--fg-muted); margin-bottom: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .hbar { display: grid; grid-template-columns: 44px 1fr 84px; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
+  .stack { display: flex; gap: 2px; height: 18px; }
+  .stack b { display: block; height: 100%; } .stack b:first-child { border-radius: 4px 0 0 4px; } .stack b:last-child { border-radius: 0 4px 4px 0; } .stack b:only-child { border-radius: 4px; }
+  .vbars { display: flex; gap: 8px; align-items: flex-end; height: 130px; border-bottom: 1px solid var(--fg-muted); overflow-x: auto; }
+  .vbars div { flex: 1 0 44px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; font-size: 12px; }
+  .vbars b { width: 60%; background: var(--s-viz); border-radius: 4px 4px 0 0; min-height: 1px; }
+  .vlab { display: flex; gap: 8px; font-size: 11px; color: var(--fg-muted); margin-top: 4px; overflow-x: hidden; }
+  .vlab span { flex: 1 0 44px; text-align: center; }
+  nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: var(--bg); padding: 6px 0 calc(8px + env(safe-area-inset-bottom)); text-align: center; font-size: 12px; z-index: 5; }
+  nav.tabs a { color: var(--fg-muted); text-decoration: none; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  nav.tabs a.on { color: var(--accent-text); font-weight: 600; }
+  nav.tabs .ic { font-size: 18px; line-height: 22px; }
+  footer { margin-top: 32px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--fg-muted); }
+  footer a { color: var(--fg-muted); }
+</style>
+</head>
+<body>
+<header class="top"><a href="https://laszlobiri.com/" aria-label="laszlobiri főoldal"><svg class="mk" viewBox="4 6 86 88" role="img" aria-label="laszlobiri jel"><polygon class="l" points="4,8 18,8 18,92"/><polygon class="l" points="4,8 18,92 4,92" fill-opacity="0.8"/><polygon class="l" points="4,78 34,78 34,92" fill-opacity="0.9"/><polygon class="l" points="4,78 34,92 4,92" fill-opacity="0.72"/><polygon class="b" points="40,14 54,6 54,92"/><polygon class="b" points="40,14 54,92 40,92" fill-opacity="0.84"/><polygon class="b" points="70,70 54,46 76,46"/><polygon class="b" points="70,70 76,46 90,62" fill-opacity="0.74"/><polygon class="b" points="70,70 90,62 86,86" fill-opacity="0.9"/><polygon class="b" points="70,70 86,86 72,94" fill-opacity="0.66"/><polygon class="b" points="70,70 72,94 54,92" fill-opacity="0.82"/><polygon class="b" points="70,70 54,92 54,46" fill-opacity="0.95"/></svg></a><span class="t">Társasház</span><span class="me" id="me" hidden></span></header>
+<main id="app"><p class="muted">Betöltés…</p></main>
+<footer><span><a href="https://laszlobiri.com/adatvedelem/">Adatkezelés</a></span><lb-auth></lb-auth></footer>
+<nav class="tabs" id="tabs" hidden>
+  <a href="#/" data-tab="home"><span class="ic" aria-hidden="true">⌂</span>Áttekintés</a>
+  <a href="#/idoszakok" data-tab="periods"><span class="ic" aria-hidden="true">☰</span>Elszámolások</a>
+  <a href="#/viz" data-tab="water"><span class="ic" aria-hidden="true">💧</span>Vízóra</a>
+  <a href="#/kimutatas" data-tab="stats"><span class="ic" aria-hidden="true">▤</span>Kimutatás</a>
+</nav>
+<script type="module" src="app.js"></script>
+</body>
+</html>
