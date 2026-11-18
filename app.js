@@ -403,6 +403,10 @@ function settingsView() {
   <form class="card" id="resForm"><label class="field"><span class="l">Ettől a naptól</span><input type="date" name="valid_from" value="${today()}" required></label>
     <div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="number" step="1" min="0" max="20" name="${f}" value="${r[f]}" style="grid-column: span 3" aria-label="${f} lakók száma">`).join('')}</div>
     <div class="btns one"><button class="p" type="submit">Mentés</button></div></form>
+  ${!D.periods.length ? `<h2>Régi adatok betöltése (egyszeri)</h2>
+  <form class="card" id="importForm"><p class="small muted">Csak üres elszámolóba: a hányad, a létszám, a leolvasások és a lezárt időszakok egy JSON fájlból. A régi utalások kiegyenlítettként kerülnek be.</p>
+    <label class="field"><span class="l">Fájl</span><input type="file" name="file" accept="application/json,.json" required></label>
+    <div class="btns one"><button class="p" type="submit">Betöltés</button></div></form>` : ''}
   ${hist.length ? `<div class="card small">${hist.map(d => `<div class="row"><span>${day(d)}-tól</span><span class="sp num">${FLATS.map(f => D.residents.find(x => x.valid_from === d && x.flat === f)?.count ?? '–').join(' : ')}</span></div>`).join('')}</div>` : ''}`;
 }
 
@@ -515,6 +519,13 @@ $app.addEventListener('submit', async e => {
     if (form.id === 'flatsForm') {
       const fd = new FormData(form); await rpc('th_save_flats', { p: Object.fromEntries(FLATS.map(f => [f, Number(fd.get(f))])) });
       await refresh('Tulajdoni hányad mentve.');
+    }
+    if (form.id === 'importForm') {
+      const file = new FormData(form).get('file');
+      if (!file || !file.size) throw new Error('Válassz egy fájlt.');
+      let p; try { p = JSON.parse(await file.text()); } catch { throw new Error('A fájl nem érvényes JSON.'); }
+      const n = await rpc('th_import', { p });
+      await refresh(`Betöltve: ${n} tétel.`, '#/idoszakok');
     }
     if (form.id === 'resForm') {
       const fd = new FormData(form); await rpc('th_save_residents', { p_valid_from: fd.get('valid_from'), p_counts: Object.fromEntries(FLATS.map(f => [f, Number(fd.get(f))])) });
