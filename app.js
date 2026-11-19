@@ -216,9 +216,8 @@ function homeView() {
     const b = balances(op.id)[ME.flat];
     hero = `<div class="card hero even"><div class="small">${esc(op.name)} · ${ME.flat} · eddig</div><div class="big num">${b < 0 ? ft(-b) : b > 0 ? ft(b) : '0 Ft'}</div><div>${b < 0 ? 'a részed (még nyitott időszak)' : b > 0 ? 'neked jár (még nyitott időszak)' : 'nincs teendőd'}</div></div>`;
   }
-  const last = D.readings[D.readings.length - 1], prev = D.readings[D.readings.length - 2];
-  const u = last && prev ? waterUse(prev.id, last.id) : null;
-  const subs = u ? FLATS.reduce((a, f) => a + u.use[f], 0) : 0;
+  // A nyitott időszak utalásai a mostani egyenlegekből (a legkevesebb utalás); lezáráskor véglegesül.
+  const plan = op ? transfers(balances(op.id)) : [];
   return `${msg ? msgEl() : ''}${!ME.flat && !ME.manager ? '<div class="warn">A fiókod még nincs lakáshoz rendelve. Szólj a kezelőnek.</div>' : ''}
   ${hero}
   ${ME.manager ? `<div class="btns one">${op ? `<a class="btn p" href="#/tetel/uj">+ Új tétel</a>` : `<a class="btn p" href="#/idoszakok">Új időszak</a>`}</div>` : ''}
@@ -227,10 +226,9 @@ function homeView() {
   ${op ? `<a class="card" href="#/idoszak/${op.id}"><div class="row"><b>${esc(op.name)}</b><span class="pill open sp">nyitott</span></div>
     <div class="small muted">${itemsOf(op.id).length} tétel · összesen <span class="num">${ft(itemsOf(op.id).reduce((a, i) => a + i.amount, 0))}</span></div>
     <div style="margin-top:8px">${balanceTable(op.id)}</div></a>` : '<p class="muted">Nincs nyitott időszak.</p>'}
-  <h2>Vízóra</h2>
-  ${last ? `<a class="card small" href="#/viz"><div class="row"><span>Utolsó leolvasás</span><b class="sp">${day(last.read_on)}</b></div>
-    ${u ? `<div class="row"><span>Lakások összesen</span><b class="sp num">${m3(subs)}</b></div>
-    ${u.main != null ? `<div class="row"><span>Főmérő</span><b class="sp num">${m3(u.main)}</b></div><div class="row"><span>Kerti csap (különbség)</span><b class="sp num">${m3(u.main - subs)}</b></div>` : ''}` : ''}</a>` : '<p class="muted">Még nincs leolvasás.</p>'}`;
+  ${op && itemsOf(op.id).length ? `<h2>Utalások</h2>
+  <div class="card" style="padding-top:2px;padding-bottom:2px">${plan.length ? plan.map(t => `<div class="tr"><span class="tag">${t.from}</span><span class="muted">→</span><span class="tag" style="justify-self:start">${t.to}</span><b class="num">${ft(t.amount)}</b></div>`).join('') : '<p class="small muted">Nincs szükség utalásra.</p>'}</div>
+  <p class="small muted">A legkevesebb utalással, a mostani egyenlegek alapján. Amíg az időszak nyitott, csak javaslat: a lezáráskor véglegesül.</p>` : ''}`;
 }
 
 function periodsView() {
