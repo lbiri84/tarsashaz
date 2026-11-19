@@ -64,6 +64,9 @@
   .item .n { font-weight: 600; } .item .m { grid-column: 2 / 4; font-size: 13px; line-height: 18px; color: var(--fg-muted); }
   .field { margin-bottom: 14px; } .field > .l { font-size: 13px; color: var(--fg-muted); margin-bottom: 4px; display: block; }
   input[type=text], input[type=number], input[type=date], select { font: inherit; color: var(--fg); background: var(--bg-raised); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 44px; width: 100%; }
+  /* iOS Safari: a dátummező különben a saját szélességét veszi, és kicsúszik a dobozból. */
+  input[type=date] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; text-align: left; }
+  input[type=date]::-webkit-date-and-time-value { text-align: left; }
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
   .seg label { border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 14px; cursor: pointer; min-height: 36px; display: inline-flex; align-items: center; }
   .seg input { position: absolute; opacity: 0; pointer-events: none; }
@@ -127,6 +130,6 @@
   <a href="#/beallitasok" data-tab="settings" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg>Beállítások</a>
 </nav>
 <!-- Kiadáskor a v= nő, hogy a böngésző (főleg mobilon) ne a gyorsítótárból vegye a régi app.js-t. -->
-<script type="module" src="app.js?v=2"></script>
+<script type="module" src="app.js?v=3"></script>
 </body>
 </html>
