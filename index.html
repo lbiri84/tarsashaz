@@ -99,6 +99,14 @@
   nav.tabs.five a { font-size: 11px; }
   .hist .row { min-height: 40px; }
   .hist button.x { min-height: 36px; padding: 0 12px; margin-left: 8px; font-weight: 500; }
+  header.top .help-btn { margin-left: 8px; width: 32px; height: 32px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--line); border-radius: 999px; color: var(--fg); text-decoration: none; font-weight: 600; font-size: 16px; }
+  header.top .me[hidden] + .help-btn { margin-left: auto; }
+  a.q { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 4px; border: 1px solid var(--line);
+    border-radius: 999px; font-size: 12px; line-height: 1; color: var(--fg-muted); text-decoration: none; text-transform: none; letter-spacing: 0; vertical-align: 1px; }
+  .help p, .help li { color: var(--fg); max-width: 62ch; }
+  .help p { margin: 0 0 12px; } .help ul { margin: 0 0 12px; padding-left: 20px; } .help li { margin-bottom: 8px; }
+  .help h2 { scroll-margin-top: 16px; }
   button.small-btn { min-height: 32px; padding: 2px 12px; font-size: 13px; font-weight: 500; }
   .trx { display: grid; grid-template-columns: 1fr auto 1fr 1.4fr auto; gap: 6px; align-items: center; margin: 8px 0; }
   .trx select, .trx input { min-height: 40px; padding: 6px 8px; font-size: 15px; }
@@ -108,9 +116,9 @@
 </style>
 </head>
 <body>
-<header class="top"><a href="https://laszlobiri.com/" aria-label="laszlobiri főoldal"><svg class="mk" viewBox="4 6 86 88" role="img" aria-label="laszlobiri jel"><polygon class="l" points="4,8 18,8 18,92"/><polygon class="l" points="4,8 18,92 4,92" fill-opacity="0.8"/><polygon class="l" points="4,78 34,78 34,92" fill-opacity="0.9"/><polygon class="l" points="4,78 34,92 4,92" fill-opacity="0.72"/><polygon class="b" points="40,14 54,6 54,92"/><polygon class="b" points="40,14 54,92 40,92" fill-opacity="0.84"/><polygon class="b" points="70,70 54,46 76,46"/><polygon class="b" points="70,70 76,46 90,62" fill-opacity="0.74"/><polygon class="b" points="70,70 90,62 86,86" fill-opacity="0.9"/><polygon class="b" points="70,70 86,86 72,94" fill-opacity="0.66"/><polygon class="b" points="70,70 72,94 54,92" fill-opacity="0.82"/><polygon class="b" points="70,70 54,92 54,46" fill-opacity="0.95"/></svg></a><span class="t">Társasház</span><span class="me" id="me" hidden></span></header>
+<header class="top"><a href="https://laszlobiri.com/" aria-label="laszlobiri főoldal"><svg class="mk" viewBox="4 6 86 88" role="img" aria-label="laszlobiri jel"><polygon class="l" points="4,8 18,8 18,92"/><polygon class="l" points="4,8 18,92 4,92" fill-opacity="0.8"/><polygon class="l" points="4,78 34,78 34,92" fill-opacity="0.9"/><polygon class="l" points="4,78 34,92 4,92" fill-opacity="0.72"/><polygon class="b" points="40,14 54,6 54,92"/><polygon class="b" points="40,14 54,92 40,92" fill-opacity="0.84"/><polygon class="b" points="70,70 54,46 76,46"/><polygon class="b" points="70,70 76,46 90,62" fill-opacity="0.74"/><polygon class="b" points="70,70 90,62 86,86" fill-opacity="0.9"/><polygon class="b" points="70,70 86,86 72,94" fill-opacity="0.66"/><polygon class="b" points="70,70 72,94 54,92" fill-opacity="0.82"/><polygon class="b" points="70,70 54,92 54,46" fill-opacity="0.95"/></svg></a><span class="t">Társasház</span><span class="me" id="me" hidden></span><a class="help-btn" href="#/sugo" aria-label="Hogyan számol?" title="Hogyan számol?">?</a></header>
 <main id="app"><p class="muted">Betöltés…</p></main>
-<footer><span><a href="https://laszlobiri.com/adatvedelem/">Adatkezelés</a></span><lb-auth></lb-auth></footer>
+<footer><span><a href="#/sugo">Hogyan számol?</a> · <a href="https://laszlobiri.com/adatvedelem/">Adatkezelés</a></span><lb-auth></lb-auth></footer>
 <nav class="tabs" id="tabs" hidden>
   <a href="#/" data-tab="home"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Áttekintés</a>
   <a href="#/idoszakok" data-tab="periods"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Elszámolások</a>
