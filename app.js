@@ -180,36 +180,28 @@ const errText = e => {
   return s.length < 160 ? s : 'Nem sikerült. Próbáld újra.';
 };
 
-function itemRow(it, link) {
+function itemRow(it, link, grouped = false) {
   const tag = link ? 'a' : 'div';
   return `<${tag} class="item"${link ? ` href="#/tetel/${it.id}"` : ''}><i class="dot" style="background:${COLOR[it.category]}"></i><span class="n">${esc(it.name)}</span><b class="num">${ft(it.amount)}</b>
-    <span class="m">fizette: ${esc(it.paid_by)} · ${METHOD_TEXT[it.method]}${it.participants.length < 4 ? ' (' + it.participants.join(', ') + ')' : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></${tag}>`;
+    <span class="m">fizette: ${esc(it.paid_by)}${grouped ? '' : ' · ' + METHOD_TEXT[it.method]}${it.participants.length < 4 ? ` · csak ${it.participants.join(', ')}` : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></${tag}>`;
 }
 
-// A felosztás táblázata felosztási mód szerint csoportosítva (csak a csoport címe); víznél
-// tételenként a fogyasztás; csoportonként részösszeg.
+// A tételek felosztási mód szerint, csoportonként egy kis fejléccel (a fejléc mutatja a módot).
 const GROUP_ORDER = [['viz', 'Vízfogyasztás szerint'], ['letszam', 'Lakók száma szerint'], ['hanyad', 'Tulajdoni hányad szerint'], ['egyenlo', 'Egyenlő részben'], ['kezi', 'Kézi felosztás']];
+function itemsGrouped(its, link) {
+  return GROUP_ORDER.map(([m, title]) => {
+    const g = its.filter(it => it.method === m);
+    return g.length ? `<div class="grp-h">${title}</div>${g.map(it => itemRow(it, link, true)).join('')}` : '';
+  }).join('');
+}
+
 function splitTable(pid) {
   const its = itemsOf(pid);
   if (!its.length) return '<p class="muted small">Még nincs tétel.</p>';
-  const per = D.periods.find(p => p.id === pid);
-  const zero = () => Object.fromEntries(FLATS.map(f => [f, 0]));
-  const tot = zero();
-  const cells = (o, cls = '') => FLATS.map(f => `<td class="num${cls}">${o[f] ? nf.format(o[f]) : '–'}</td>`).join('');
-  const rows = GROUP_ORDER.map(([m, title]) => {
-    const g = its.filter(it => it.method === m);
-    if (!g.length) return '';
-    const sub = zero();
-    const body = g.map(it => {
-      const sh = sharesOf(it.id); FLATS.forEach(f => { sub[f] += sh[f]; tot[f] += sh[f]; });
-      let note = it.participants.length < 4 ? 'csak ' + it.participants.join(', ') : '';
-      if (m === 'viz') { const u = waterUse(it.reading_from, it.reading_to); if (u) note = [FLATS.filter(f => it.participants.includes(f)).map(f => new Intl.NumberFormat('hu-HU', { maximumFractionDigits: 1 }).format(u.use[f])).join(' : ') + ' m³', note].filter(Boolean).join(', '); }
-      return `<tr><td>${esc(it.name)}${note ? `<div class="small muted">${esc(note)}</div>` : ''}</td>${cells(sh)}</tr>`;
-    }).join('');
-    return `<tr class="grp"><td colspan="5"><b>${title}</b></td></tr>${body}`
-      + (g.length > 1 ? `<tr class="sub"><td>Részösszeg</td>${cells(sub)}</tr>` : '');
-  }).join('');
-  return `<div class="scroll"><table class="split-t"><tr><th></th>${FLATS.map(f => `<th>${f}</th>`).join('')}</tr>${rows}
+  const tot = Object.fromEntries(FLATS.map(f => [f, 0]));
+  const rows = its.map(it => { const sh = sharesOf(it.id); FLATS.forEach(f => tot[f] += sh[f]);
+    return `<tr><td>${esc(it.name)}</td>${FLATS.map(f => `<td class="num">${sh[f] ? nf.format(sh[f]) : '–'}</td>`).join('')}</tr>`; }).join('');
+  return `<div class="scroll"><table><tr><th></th>${FLATS.map(f => `<th>${f}</th>`).join('')}</tr>${rows}
     <tr class="tot"><td>Összesen</td>${FLATS.map(f => `<td class="num">${nf.format(tot[f])}</td>`).join('')}</tr></table></div>`;
 }
 
@@ -333,7 +325,7 @@ function periodView(id) {
       <span class="row"><b class="num">${ft(t.amount)}</b><input type="checkbox" data-paid="${t.id}"${t.paid_at ? ' checked' : ''}${canMark(t) ? '' : ' disabled'} aria-label="${t.from_flat} → ${t.to_flat}: megérkezett"></span></label>`).join('') : '<p class="small muted">Nem volt szükség utalásra.</p>'}</div>
     <p class="small muted">A pipát az utaló vagy a fogadó lakás teheti be, amikor az utalás megérkezett.</p>` : ''}
   <h2>Tételek</h2>
-  <div class="card" style="padding-top:2px;padding-bottom:2px">${its.length ? its.map(it => itemRow(it, ME.manager && open)).join('') : '<p class="muted small">Még nincs tétel.</p>'}</div>
+  <div class="card" style="padding-top:2px;padding-bottom:2px">${its.length ? itemsGrouped(its, ME.manager && open) : '<p class="muted small">Még nincs tétel.</p>'}</div>
   ${ME.manager && open ? `<div class="btns"><a class="btn" href="#/tetel/uj">+ Új tétel</a><button class="p" data-act="preclose"${its.length ? '' : ' disabled'}>Lezárás, utalások</button></div>` : ''}
   ${closing ? closingCard(p) : ''}
   <h2>Felosztás</h2><div class="card">${splitTable(p.id)}</div>
