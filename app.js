@@ -205,30 +205,33 @@ function balanceTable(pid) {
 
 function homeView() {
   const op = openPeriod();
-  let hero = '';
-  // Függő utalások a lezárt időszakokból, amelyek a saját lakást érintik.
+  // Lezárt időszakok függő utalásai, amelyek a saját lakást érintik: ezek valódi teendők.
   const mine = ME.flat ? D.transfers.filter(t => !t.paid_at && (t.from_flat === ME.flat || t.to_flat === ME.flat)) : [];
-  if (ME.flat && mine.length) {
-    const out = mine.filter(t => t.from_flat === ME.flat), inn = mine.filter(t => t.to_flat === ME.flat);
-    hero = out.map(t => `<a class="card hero" href="#/idoszak/${t.period_id}"><div class="small">${esc(D.periods.find(p => p.id === t.period_id)?.name)} · ${ME.flat}</div><div class="big num">${ft(t.amount)}</div><div>utalandó <b>${t.to_flat}</b> részére</div></a>`).join('')
-      + inn.map(t => `<a class="card hero even" href="#/idoszak/${t.period_id}"><div class="small">${esc(D.periods.find(p => p.id === t.period_id)?.name)}</div><div><b>${t.from_flat}</b> utalása várható: <b class="num">${ft(t.amount)}</b></div></a>`).join('');
-  } else if (ME.flat && op) {
-    const b = balances(op.id)[ME.flat];
-    hero = `<div class="card hero even"><div class="small">${esc(op.name)} · ${ME.flat} · eddig</div><div class="big num">${b < 0 ? ft(-b) : b > 0 ? ft(b) : '0 Ft'}</div><div>${b < 0 ? 'a részed (még nyitott időszak)' : b > 0 ? 'neked jár (még nyitott időszak)' : 'nincs teendőd'}</div></div>`;
+  const due = mine.filter(t => t.from_flat === ME.flat).map(t => `<a class="card hero" href="#/idoszak/${t.period_id}"><div class="small">${esc(D.periods.find(p => p.id === t.period_id)?.name)} · ${ME.flat}</div><div class="big num">${ft(t.amount)}</div><div>utalandó <b>${t.to_flat}</b> részére</div></a>`).join('')
+    + mine.filter(t => t.to_flat === ME.flat).map(t => `<a class="card hero even" href="#/idoszak/${t.period_id}"><div class="small">${esc(D.periods.find(p => p.id === t.period_id)?.name)}</div><div><b>${t.from_flat}</b> utalása várható: <b class="num">${ft(t.amount)}</b></div></a>`).join('');
+  // A nyitott időszak: a saját eddigi egyenleg, az elszámolás és a javasolt utalások egy kiemelt
+  // panelen, hogy látszódjon: ezek még változhatnak, most még nem kell utalni.
+  let open = '<h2>Nyitott elszámolás</h2><p class="muted">Nincs nyitott időszak.</p>';
+  if (op) {
+    const b = ME.flat ? balances(op.id)[ME.flat] : 0;
+    const plan = transfers(balances(op.id)), its = itemsOf(op.id);
+    open = `<section class="pending" aria-label="Nyitott időszak">
+    <p class="pending-note"><b>Még nyitott időszak: most még nem kell utalni.</b> Az összegek változhatnak, az utalások a lezáráskor véglegesülnek.</p>
+    ${ME.flat ? `<div class="card"><div class="small muted">${esc(op.name)} · ${ME.flat} · eddig</div><div class="big num">${b < 0 ? ft(-b) : b > 0 ? ft(b) : '0 Ft'}</div><div>${b < 0 ? 'a részed' : b > 0 ? 'neked jár' : 'nincs teendőd'}</div></div>` : ''}
+    <h2>Nyitott elszámolás</h2>
+    <a class="card" href="#/idoszak/${op.id}"><div class="row"><b>${esc(op.name)}</b><span class="pill open sp">nyitott</span></div>
+      <div class="small muted">${its.length} tétel · összesen <span class="num">${ft(its.reduce((a, i) => a + i.amount, 0))}</span></div>
+      <div style="margin-top:8px">${balanceTable(op.id)}</div></a>
+    ${its.length ? `<h2>Javasolt utalások <a class="q" href="#/sugo/utalasok" aria-label="Hogyan jönnek ki az utalások?">?</a></h2>
+    <div class="card" style="padding-top:2px;padding-bottom:2px">${plan.length ? plan.map(t => `<div class="tr"><span class="tag">${t.from}</span><span class="muted">→</span><span class="tag" style="justify-self:start">${t.to}</span><b class="num">${ft(t.amount)}</b></div>`).join('') : '<p class="small muted">Nincs szükség utalásra.</p>'}</div>
+    <p class="small muted" style="margin:0">A legkevesebb utalással, a mostani egyenlegek alapján.</p>` : ''}
+  </section>`;
   }
-  // A nyitott időszak utalásai a mostani egyenlegekből (a legkevesebb utalás); lezáráskor véglegesül.
-  const plan = op ? transfers(balances(op.id)) : [];
   return `${msg ? msgEl() : ''}${!ME.flat && !ME.manager ? '<div class="warn">A fiókod még nincs lakáshoz rendelve. Szólj a kezelőnek.</div>' : ''}
-  ${hero}
+  ${due}
   ${ME.manager ? `<div class="btns one">${op ? `<a class="btn p" href="#/tetel/uj">+ Új tétel</a>` : `<a class="btn p" href="#/idoszakok">Új időszak</a>`}</div>` : ''}
   ${ME.manager && !D.periods.length ? '<div class="warn">Az elszámoló még üres. A tulajdoni hányadot és a lakók számát a <a href="#/beallitasok">Beállítások</a> fülön adhatod meg, utána indíts egy új időszakot.</div>' : ''}
-  <h2>Nyitott elszámolás</h2>
-  ${op ? `<a class="card" href="#/idoszak/${op.id}"><div class="row"><b>${esc(op.name)}</b><span class="pill open sp">nyitott</span></div>
-    <div class="small muted">${itemsOf(op.id).length} tétel · összesen <span class="num">${ft(itemsOf(op.id).reduce((a, i) => a + i.amount, 0))}</span></div>
-    <div style="margin-top:8px">${balanceTable(op.id)}</div></a>` : '<p class="muted">Nincs nyitott időszak.</p>'}
-  ${op && itemsOf(op.id).length ? `<h2>Utalások <a class="q" href="#/sugo/utalasok" aria-label="Hogyan jönnek ki az utalások?">?</a></h2>
-  <div class="card" style="padding-top:2px;padding-bottom:2px">${plan.length ? plan.map(t => `<div class="tr"><span class="tag">${t.from}</span><span class="muted">→</span><span class="tag" style="justify-self:start">${t.to}</span><b class="num">${ft(t.amount)}</b></div>`).join('') : '<p class="small muted">Nincs szükség utalásra.</p>'}</div>
-  <p class="small muted">A legkevesebb utalással, a mostani egyenlegek alapján. Amíg az időszak nyitott, csak javaslat: a lezáráskor véglegesül.</p>` : ''}`;
+  ${open}`;
 }
 
 function periodsView() {
