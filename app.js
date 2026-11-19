@@ -524,7 +524,8 @@ $app.addEventListener('submit', async e => {
     }
     if (form.id === 'itemForm') {
       readItemForm(form);
-      const { shares } = computeShares(F);
+      // Csak a beszálló lakások (nem nulla) része megy el: az adatbázis a többit elutasítja.
+      const shares = Object.fromEntries(Object.entries(computeShares(F).shares).filter(([f, v]) => v && F.participants.includes(f)));
       const p = { id: F.id || uid(), period_id: F.period_id, name: F.name.trim(), category: F.category, amount: Math.round(num(F.amount)), paid_by: F.paid_by,
         method: F.method, participants: F.participants, reading_from: F.method === 'viz' ? F.reading_from : null, reading_to: F.method === 'viz' ? F.reading_to : null,
         note: F.note, shares };
