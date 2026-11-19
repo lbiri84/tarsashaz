@@ -129,9 +129,8 @@
   .todo.hero.late .age { background: #000; color: var(--accent); }
   .todo.owed.late { background: color-mix(in srgb, var(--accent) 14%, var(--bg-raised)); }
   .todo.owed.late .age { background: var(--accent); color: #000; }
-  /* A tételek listájában a felosztási mód kis fejléce */
-  .grp-h { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--accent-text); padding: 12px 0 2px; }
-  .grp-h + .item { padding-top: 6px; }
+  /* A felosztás táblázatában a felosztási mód vékony fejléce */
+  .split-t tr.grp td { padding: 12px 4px 2px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--accent-text); border-bottom: 0; }
   button.small-btn { min-height: 32px; padding: 2px 12px; font-size: 13px; font-weight: 500; }
   .trx { display: grid; grid-template-columns: 1fr auto 1fr 1.4fr auto; gap: 6px; align-items: center; margin: 8px 0; }
   .trx select, .trx input { min-height: 40px; padding: 6px 8px; font-size: 15px; }
@@ -152,6 +151,6 @@
   <a href="#/beallitasok" data-tab="settings" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg>Beállítások</a>
 </nav>
 <!-- Kiadáskor a v= nő, hogy a böngésző (főleg mobilon) ne a gyorsítótárból vegye a régi app.js-t. -->
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=10"></script>
 </body>
 </html>
