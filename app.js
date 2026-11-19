@@ -31,6 +31,8 @@ const pct = n => new Intl.NumberFormat('hu-HU', { maximumFractionDigits: 1 }).fo
 const day = d => d ? new Date(d + (String(d).length === 10 ? 'T12:00:00' : '')).toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomUUID();
+/** Beírt szám: a szóközök kimaradnak, a tizedesvessző is jó. Üres vagy hibás: NaN. */
+const num = v => { const t = String(v ?? '').replace(/[\s\u00a0]/g, '').replace(',', '.'); return t === '' || t === '-' ? NaN : Number(t); };
 
 /** Egész forintos felosztás súlyok szerint; a kerekítés után is pontosan kiadja az összeget. */
 export function split(amount, weights) {
@@ -126,8 +128,8 @@ function periodState(p) {
 /** A tétel lakásrészei a választott mód szerint (a „kézi” a megadott számokkal). */
 function computeShares(f) {
   const parts = FLATS.filter(x => f.participants.includes(x));
-  const amount = Math.round(Number(f.amount) || 0);
-  if (f.method === 'kezi') return { shares: Object.fromEntries(FLATS.map(x => [x, parts.includes(x) ? Math.round(Number(f.manual[x]) || 0) : 0])) };
+  const amount = Math.round(num(f.amount) || 0);
+  if (f.method === 'kezi') return { shares: Object.fromEntries(FLATS.map(x => [x, parts.includes(x) ? Math.round(num(f.manual[x]) || 0) : 0])) };
   let w = {}, info = '';
   if (f.method === 'hanyad') { for (const x of parts) w[x] = share(x); info = parts.map(x => share(x)).join(' / ') + ' tízezred'; }
   if (f.method === 'letszam') { const r = residentsAt(f.date || today()); for (const x of parts) w[x] = r[x]; info = parts.map(x => r[x] + ' fő').join(' / '); }
@@ -284,7 +286,7 @@ function itemView() {
   const seg = (name, opts, val, multi = false) => `<div class="seg" role="${multi ? 'group' : 'radiogroup'}">${Object.entries(opts).map(([k, l]) =>
     `<label><input type="${multi ? 'checkbox' : 'radio'}" name="${name}" value="${k}"${(multi ? val.includes(k) : val === k) ? ' checked' : ''}>${esc(l)}</label>`).join('')}</div>`;
   const { shares, info, error } = computeShares(F);
-  const total = FLATS.reduce((a, f) => a + shares[f], 0), amt = Math.round(Number(F.amount) || 0);
+  const total = FLATS.reduce((a, f) => a + shares[f], 0), amt = Math.round(num(F.amount) || 0);
   const max = Math.max(1, ...FLATS.map(f => Math.abs(shares[f])));
   const rOpts = D.readings.map(r => `<option value="${r.id}">${day(r.read_on)}</option>`).join('');
   const wu = F.method === 'viz' ? waterUse(F.reading_from, F.reading_to) : null;
@@ -294,14 +296,14 @@ function itemView() {
   <form id="itemForm" novalidate>
   <label class="field"><span class="l">Megnevezés</span><input type="text" name="name" maxlength="80" value="${esc(F.name)}" required></label>
   <div class="field"><span class="l">Kategória</span>${seg('category', CATS, F.category)}</div>
-  <label class="field"><span class="l">Összeg (Ft; visszatérítés: negatív)</span><input type="number" name="amount" inputmode="numeric" step="1" value="${esc(F.amount)}" required></label>
+  <label class="field"><span class="l">Összeg (Ft; visszatérítés: negatív)</span><input type="text" name="amount" inputmode="numeric" autocomplete="off" value="${esc(F.amount)}" required></label>
   <div class="field"><span class="l">Ki fizette?</span>${seg('paid_by', Object.fromEntries(FLATS.map(f => [f, f])), F.paid_by)}</div>
   <div class="field"><span class="l">Ki száll be?</span>${seg('participants', Object.fromEntries(FLATS.map(f => [f, f])), F.participants, true)}</div>
   <div class="field"><span class="l">Felosztás</span>${seg('method', Object.fromEntries(Object.entries(METHODS).filter(([k]) => k !== 'atvett' || F.method === 'atvett')), F.method)}</div>
   ${F.method === 'viz' ? `<div class="field grid2"><label class="field"><span class="l">Leolvasás: ettől</span><select name="reading_from">${rOpts}</select></label>
     <label class="field"><span class="l">eddig</span><select name="reading_to">${rOpts}</select></label></div>
     ${wu && wu.main != null ? `<p class="small muted">Főmérő: ${m3(wu.main)}, lakások: ${m3(FLATS.reduce((a, f) => a + wu.use[f], 0))}, kerti csap: ${m3(wu.main - FLATS.reduce((a, f) => a + wu.use[f], 0))}. A kerti rész a lakások fogyasztásának arányában oszlik.</p>` : ''}${gaps}` : ''}
-  ${F.method === 'kezi' ? `<div class="field"><span class="l">Lakásonként (Ft)</span><div class="grid4">${FLATS.filter(f => F.participants.includes(f)).map(f => `<b>${f}</b><input type="number" step="1" name="m_${f}" value="${esc(F.manual[f])}" style="grid-column: span 3">`).join('')}</div></div>` : ''}
+  ${F.method === 'kezi' ? `<div class="field"><span class="l">Lakásonként (Ft)</span><div class="grid4">${FLATS.filter(f => F.participants.includes(f)).map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="m_${f}" value="${esc(F.manual[f])}" style="grid-column: span 3">`).join('')}</div></div>` : ''}
   <div class="card"><div class="small muted" style="margin-bottom:8px">${error ? `<span class="msg err">${esc(error)}</span>` : 'Így oszlik meg' + (info ? ` (${esc(info)})` : '')}</div>
     <div class="split">${FLATS.map(f => `<b>${f}</b><div class="bar" style="width:${Math.round(Math.abs(shares[f]) / max * 100)}%${shares[f] ? '' : ';opacity:.2'}"></div><span class="num r">${ft(shares[f])}</span>`).join('')}</div>
     <div class="small ${total === amt ? 'muted' : 'msg err'}" style="margin-top:8px">${total === amt ? `Pontosan ${ft(amt)}.` : `A részek összege ${ft(total)}, a tétel ${ft(amt)}.`}</div></div>
@@ -342,12 +344,12 @@ function waterView() {
 function readingView() {
   const last = D.readings[D.readings.length - 1];
   const v = R || { read_on: today(), main: '', fsz1: '', fsz2: '', em3: '', em4: '' };
-  const d = k => (v[k] !== '' && last ? Number(v[k]) - Number(last[k] ?? NaN) : NaN);
+  const d = k => (last && last[k] != null ? num(v[k]) - Number(last[k]) : NaN);
   const subs = FLATS.reduce((a, f) => a + (isNaN(d(MCOL[f])) ? 0 : d(MCOL[f])), 0);
   const warns = [];
   for (const f of FLATS) if (!isNaN(d(MCOL[f])) && d(MCOL[f]) < 0) warns.push(`A(z) ${f} állása kisebb, mint az előző: elírás lehet.`);
   if (!isNaN(d('main')) && subs > d('main') + 0.001) warns.push('A lakások összesen többet fogyasztottak, mint a főmérő: valamelyik szám elírás lehet.');
-  const line = (k, label) => `<b>${label}</b><span class="r muted num">${last && last[k] != null ? nf.format(last[k]) : '–'}</span><input type="number" step="0.001" inputmode="decimal" name="${k}" value="${esc(v[k])}" aria-label="${label}"><span class="r num"><b>${isNaN(d(k)) ? '' : m3(d(k))}</b></span>`;
+  const line = (k, label) => `<b>${label}</b><span class="r muted num">${last && last[k] != null ? nf.format(last[k]) : '–'}</span><input type="text" inputmode="decimal" autocomplete="off" name="${k}" value="${esc(v[k])}" aria-label="${label}"><span class="r num"><b>${isNaN(d(k)) ? '' : m3(d(k))}</b></span>`;
   return `<a class="back" href="#/viz">‹ Vízóra</a><h1>Leolvasás</h1>
   <form id="readingForm" novalidate>
   <label class="field"><span class="l">A leolvasás napja</span><input type="date" name="read_on" value="${esc(v.read_on)}" required></label>
@@ -399,11 +401,11 @@ function settingsView() {
   return `<a class="back" href="#/kimutatas">‹ Kimutatás</a><h1>Beállítások</h1>
   ${msgEl()}
   <h2>Tulajdoni hányad (tízezred, összesen 10 000)</h2>
-  <form class="card" id="flatsForm"><div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="number" step="1" name="${f}" value="${share(f) || ''}" style="grid-column: span 3" aria-label="${f} tulajdoni hányad">`).join('')}</div>
+  <form class="card" id="flatsForm"><div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="${f}" value="${share(f) || ''}" style="grid-column: span 3" aria-label="${f} tulajdoni hányad">`).join('')}</div>
     <div class="btns one"><button class="p" type="submit">Mentés</button></div></form>
   <h2>Lakók száma (a szemétdíjhoz)</h2>
   <form class="card" id="resForm"><label class="field"><span class="l">Ettől a naptól</span><input type="date" name="valid_from" value="${today()}" required></label>
-    <div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="number" step="1" min="0" max="20" name="${f}" value="${r[f]}" style="grid-column: span 3" aria-label="${f} lakók száma">`).join('')}</div>
+    <div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="${f}" value="${r[f]}" style="grid-column: span 3" aria-label="${f} lakók száma">`).join('')}</div>
     <div class="btns one"><button class="p" type="submit">Mentés</button></div></form>
   ${!D.periods.length ? `<h2>Régi adatok betöltése (egyszeri)</h2>
   <form class="card" id="importForm"><p class="small muted">Csak üres elszámolóba: a hányad, a létszám, a leolvasások és a lezárt időszakok egy JSON fájlból. A régi utalások kiegyenlítettként kerülnek be.</p>
@@ -471,11 +473,13 @@ $app.addEventListener('input', e => {
     const name = e.target.name, pos = e.target.selectionStart;
     render();
     const el = $app.querySelector(`[name="${name}"]${e.target.type === 'radio' || e.target.type === 'checkbox' ? `[value="${e.target.value}"]` : ''}`);
-    if (el) { el.focus(); if (pos != null && el.setSelectionRange && el.type === 'text') el.setSelectionRange(pos, pos); }
+    if (el) { el.focus(); if (pos != null && el.type === 'text') el.setSelectionRange(pos, pos); }
   }
   if (form?.id === 'readingForm') {
     const fd = new FormData(form); R = Object.fromEntries(['read_on', 'main', 'fsz1', 'fsz2', 'em3', 'em4'].map(k => [k, fd.get(k) ?? '']));
-    const name = e.target.name; render(); $app.querySelector(`[name="${name}"]`)?.focus();
+    const name = e.target.name, pos = e.target.selectionStart; render();
+    const el = $app.querySelector(`[name="${name}"]`);
+    if (el) { el.focus(); if (pos != null && el.type === 'text') el.setSelectionRange(pos, pos); }
   }
 });
 $app.addEventListener('change', async e => {
@@ -502,7 +506,7 @@ $app.addEventListener('submit', async e => {
     if (form.id === 'itemForm') {
       readItemForm(form);
       const { shares } = computeShares(F);
-      const p = { id: F.id || uid(), period_id: F.period_id, name: F.name.trim(), category: F.category, amount: Math.round(Number(F.amount)), paid_by: F.paid_by,
+      const p = { id: F.id || uid(), period_id: F.period_id, name: F.name.trim(), category: F.category, amount: Math.round(num(F.amount)), paid_by: F.paid_by,
         method: F.method, participants: F.participants, reading_from: F.method === 'viz' ? F.reading_from : null, reading_to: F.method === 'viz' ? F.reading_to : null,
         note: F.note, shares };
       if (!p.name) throw new Error('Adj meg egy megnevezést.');
@@ -512,14 +516,14 @@ $app.addEventListener('submit', async e => {
       await refresh('Mentve: ' + p.name + '.', '#/idoszak/' + pid);
     }
     if (form.id === 'readingForm') {
-      const fd = new FormData(form), v = k => (fd.get(k) === '' ? null : Number(fd.get(k)));
+      const fd = new FormData(form), v = k => (isNaN(num(fd.get(k))) ? null : num(fd.get(k)));
       const p = { read_on: fd.get('read_on'), main: v('main'), fsz1: v('fsz1'), fsz2: v('fsz2'), em3: v('em3'), em4: v('em4') };
       if (FLATS.some(f => p[MCOL[f]] == null)) throw new Error('Mind a négy almérő állása kell.');
       await rpc('th_save_reading', { p });
       R = null; await refresh('Leolvasás mentve.', '#/viz');
     }
     if (form.id === 'flatsForm') {
-      const fd = new FormData(form); await rpc('th_save_flats', { p: Object.fromEntries(FLATS.map(f => [f, Number(fd.get(f))])) });
+      const fd = new FormData(form); await rpc('th_save_flats', { p: Object.fromEntries(FLATS.map(f => [f, num(fd.get(f))])) });
       await refresh('Tulajdoni hányad mentve.');
     }
     if (form.id === 'importForm') {
@@ -530,7 +534,7 @@ $app.addEventListener('submit', async e => {
       await refresh(`Betöltve: ${n} tétel.`, '#/idoszakok');
     }
     if (form.id === 'resForm') {
-      const fd = new FormData(form); await rpc('th_save_residents', { p_valid_from: fd.get('valid_from'), p_counts: Object.fromEntries(FLATS.map(f => [f, Number(fd.get(f))])) });
+      const fd = new FormData(form); await rpc('th_save_residents', { p_valid_from: fd.get('valid_from'), p_counts: Object.fromEntries(FLATS.map(f => [f, num(fd.get(f))])) });
       await refresh('Lakók száma mentve.');
     }
   } catch (err) { say(errText(err), true); if (btn) btn.disabled = false; return; }
