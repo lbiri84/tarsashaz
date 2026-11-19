@@ -207,8 +207,15 @@ function homeView() {
   const op = openPeriod();
   // Lezárt időszakok függő utalásai, amelyek a saját lakást érintik: ezek valódi teendők.
   const mine = ME.flat ? D.transfers.filter(t => !t.paid_at && (t.from_flat === ME.flat || t.to_flat === ME.flat)) : [];
-  const due = mine.filter(t => t.from_flat === ME.flat).map(t => `<a class="card hero" href="#/idoszak/${t.period_id}"><div class="small">${esc(D.periods.find(p => p.id === t.period_id)?.name)} · ${ME.flat}</div><div class="big num">${ft(t.amount)}</div><div>utalandó <b>${t.to_flat}</b> részére</div></a>`).join('')
-    + mine.filter(t => t.to_flat === ME.flat).map(t => `<a class="card hero even" href="#/idoszak/${t.period_id}"><div class="small">${esc(D.periods.find(p => p.id === t.period_id)?.name)}</div><div><b>${t.from_flat}</b> utalása várható: <b class="num">${ft(t.amount)}</b></div></a>`).join('');
+  const card = t => {
+    const per = D.periods.find(p => p.id === t.period_id), n = daysSince(per?.closed_at), late = n >= LATE_DAYS, out = t.from_flat === ME.flat;
+    return `<div class="card todo ${out ? 'hero' : 'owed'}${late ? ' late' : ''}">
+      <div class="row small"><span>${out ? 'Még nem utaltad el' : 'Még tartoznak neked'}</span><span class="sp age">${n === 0 ? 'ma zárult' : `lezárva ${n} napja`}</span></div>
+      <div class="big num">${ft(t.amount)}</div>
+      <div>${out ? `utalandó <b>${t.to_flat}</b> részére` : `<b>${t.from_flat}</b> utalása`} · <a href="#/idoszak/${t.period_id}">${esc(per?.name)}</a></div>
+      <button type="button" class="${out ? 'dark' : 'p'}" data-paidbtn="${t.id}">${out ? 'Elutaltam' : 'Megjött'}</button></div>`;
+  };
+  const due = mine.length ? `<h2 class="todo-h">Teendők</h2>${mine.filter(t => t.from_flat === ME.flat).map(card).join('')}${mine.filter(t => t.to_flat === ME.flat).map(card).join('')}` : '';
   // A nyitott időszak: a saját eddigi egyenleg, az elszámolás és a javasolt utalások egy kiemelt
   // panelen, hogy látszódjon: ezek még változhatnak, most még nem kell utalni.
   let open = '<h2>Nyitott elszámolás</h2><p class="muted">Nincs nyitott időszak.</p>';
@@ -265,7 +272,9 @@ function chatText(p) {
 let closing = null;   // a lezárás előnézete: [{from, to, amount}]
 let closeCustom = false, closePaid = false;
 let editPeriod = false;   // az időszak nevének, kezdőnapjának, megjegyzésének szerkesztése   // egyedi utalások; már mind kiegyenlítve
-const TOL = 10;   // lakásonként ennyi Ft kerekítési eltérés engedett (az adatbázisban is)
+const TOL = 10;
+const LATE_DAYS = 7;   // ennyi nap után a függő utalás kiemelten látszik
+const daysSince = iso => (iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)) : 0);   // lakásonként ennyi Ft kerekítési eltérés engedett (az adatbázisban is)
 
 /** Lakásonként: (kapott − utalt) − egyenleg; 0, ha az utalások pontosan rendezik. */
 function transferDiff(pid, list) {
@@ -303,6 +312,9 @@ function periodView(id) {
   : `<h1>${esc(p.name)}</h1>
   <div class="row small"><span class="pill ${cls}">${st}</span>${p.note ? `<span class="muted">${esc(p.note)}</span>` : ''}${ME.manager ? '<button type="button" class="sp small-btn" data-act="editperiod">Szerkesztés</button>' : ''}</div>`}
   ${msgEl()}
+  ${!open ? `<h2>Utalások</h2><div class="card" style="padding-top:2px;padding-bottom:2px">${trs.length ? trs.map(t => `<label class="tr"><span class="tag">${t.from_flat}</span><span class="muted">→</span><span class="tag" style="justify-self:start">${t.to_flat}</span>
+      <span class="row"><b class="num">${ft(t.amount)}</b><input type="checkbox" data-paid="${t.id}"${t.paid_at ? ' checked' : ''}${canMark(t) ? '' : ' disabled'} aria-label="${t.from_flat} → ${t.to_flat}: megérkezett"></span></label>`).join('') : '<p class="small muted">Nem volt szükség utalásra.</p>'}</div>
+    <p class="small muted">A pipát az utaló vagy a fogadó lakás teheti be, amikor az utalás megérkezett.</p>` : ''}
   <h2>Tételek</h2>
   <div class="card" style="padding-top:2px;padding-bottom:2px">${its.length ? its.map(it => itemRow(it, ME.manager && open)).join('') : '<p class="muted small">Még nincs tétel.</p>'}</div>
   ${ME.manager && open ? `<div class="btns"><a class="btn" href="#/tetel/uj">+ Új tétel</a><button class="p" data-act="preclose"${its.length ? '' : ' disabled'}>Lezárás, utalások</button></div>` : ''}
@@ -310,9 +322,6 @@ function periodView(id) {
   <h2>Felosztás</h2><div class="card">${splitTable(p.id)}</div>
   <h2>Egyenlegek</h2><div class="card">${balanceTable(p.id)}</div>
   ${!open && FLATS.some(f => transferDiff(p.id, trs.map(t => ({ from: t.from_flat, to: t.to_flat, amount: t.amount })))[f]) ? `<p class="small muted">Kerekítési eltérés az utalásokban: ${diffText(transferDiff(p.id, trs.map(t => ({ from: t.from_flat, to: t.to_flat, amount: t.amount }))))}.</p>` : ''}
-  ${!open ? `<h2>Utalások</h2><div class="card" style="padding-top:2px;padding-bottom:2px">${trs.length ? trs.map(t => `<label class="tr"><span class="tag">${t.from_flat}</span><span class="muted">→</span><span class="tag" style="justify-self:start">${t.to_flat}</span>
-      <span class="row"><b class="num">${ft(t.amount)}</b><input type="checkbox" data-paid="${t.id}"${t.paid_at ? ' checked' : ''}${canMark(t) ? '' : ' disabled'} aria-label="${t.from_flat} → ${t.to_flat}: megérkezett"></span></label>`).join('') : '<p class="small muted">Nem volt szükség utalásra.</p>'}</div>
-    <p class="small muted">A pipát az utaló vagy a fogadó lakás teheti be, amikor az utalás megérkezett.</p>` : ''}
   <h2>Üzenet a közös chatbe</h2><div class="card"><pre class="chat" id="chat">${esc(chatText(p))}</pre></div>
   <div class="btns${ME.manager && !open ? '' : ' one'}"><button data-act="copy">Szöveg másolása</button>${ME.manager && !open ? '<button data-act="reopen">Újranyitás</button>' : ''}</div>
   ${ME.manager ? '<div class="btns one"><button class="danger" data-act="delperiod">Időszak törlése</button></div>' : ''}`;
@@ -636,6 +645,16 @@ $app.addEventListener('submit', async e => {
 
 $app.addEventListener('click', async e => {
   if (e.target.dataset.act === 'closepaid') { closePaid = e.target.checked; return; }
+  const pb = e.target.closest('[data-paidbtn]');
+  if (pb) {
+    pb.disabled = true;
+    const t = D.transfers.find(x => x.id === pb.dataset.paidbtn);
+    try {
+      await rpc('th_mark_transfer', { p_id: pb.dataset.paidbtn, p_paid: true });
+      await refresh(`Megjelölve: ${t.from_flat} → ${t.to_flat} ${ft(t.amount)}. Ha tévedés, az időszak oldalán visszavonható.`);
+    } catch (err) { say(errText(err), true); pb.disabled = false; }
+    return;
+  }
   const dt = e.target.closest('[data-deltr]');
   if (dt) { closing.splice(+dt.dataset.deltr, 1); render(); return; }
   if (e.target.closest('[data-act=back]') && history.length > 1) { e.preventDefault(); history.back(); return; }
