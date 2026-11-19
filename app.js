@@ -219,7 +219,7 @@ function homeView() {
   const last = D.readings[D.readings.length - 1], prev = D.readings[D.readings.length - 2];
   const u = last && prev ? waterUse(prev.id, last.id) : null;
   const subs = u ? FLATS.reduce((a, f) => a + u.use[f], 0) : 0;
-  return `${!ME.flat && !ME.manager ? '<div class="warn">A fiókod még nincs lakáshoz rendelve. Szólj a kezelőnek.</div>' : ''}
+  return `${msg ? msgEl() : ''}${!ME.flat && !ME.manager ? '<div class="warn">A fiókod még nincs lakáshoz rendelve. Szólj a kezelőnek.</div>' : ''}
   ${hero}
   ${ME.manager ? `<div class="btns">${op ? `<a class="btn p" href="#/tetel/uj">+ Új tétel</a>` : `<a class="btn p" href="#/idoszakok">Új időszak</a>`}<a class="btn" href="#/viz/uj">Vízóra-leolvasás</a></div>` : ''}
   ${ME.manager && !D.periods.length ? '<div class="warn">Az elszámoló még üres. A régi adatokat a <a href="#/beallitasok">Beállítások</a> oldalon töltheted be, vagy indíts egy új időszakot.</div>' : ''}
@@ -283,7 +283,8 @@ function periodView(id) {
       <span class="row"><b class="num">${ft(t.amount)}</b><input type="checkbox" data-paid="${t.id}"${t.paid_at ? ' checked' : ''}${canMark(t) ? '' : ' disabled'} aria-label="${t.from_flat} → ${t.to_flat}: megérkezett"></span></label>`).join('') : '<p class="small muted">Nem volt szükség utalásra.</p>'}</div>
     <p class="small muted">A pipát az utaló vagy a fogadó lakás teheti be, amikor az utalás megérkezett.</p>` : ''}
   <h2>Üzenet a közös chatbe</h2><div class="card"><pre class="chat" id="chat">${esc(chatText(p))}</pre></div>
-  <div class="btns${ME.manager && !open ? '' : ' one'}"><button data-act="copy">Szöveg másolása</button>${ME.manager && !open ? '<button data-act="reopen">Újranyitás</button>' : ''}</div>`;
+  <div class="btns${ME.manager && !open ? '' : ' one'}"><button data-act="copy">Szöveg másolása</button>${ME.manager && !open ? '<button data-act="reopen">Újranyitás</button>' : ''}</div>
+  ${ME.manager ? '<div class="btns one"><button class="danger" data-act="delperiod">Időszak törlése</button></div>' : ''}`;
 }
 
 // Az új vagy szerkesztett tétel űrlapjának állapota.
@@ -429,6 +430,11 @@ function settingsView() {
   <form class="card" id="resForm"><label class="field"><span class="l">Ettől a naptól</span><input type="date" name="valid_from" value="${today()}" required></label>
     <div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="${f}" value="${r[f]}" style="grid-column: span 3" aria-label="${f} lakók száma">`).join('')}</div>
     <div class="btns one"><button class="p" type="submit">Mentés</button></div></form>
+  <h2>Minden adat törlése</h2>
+  <form class="card" id="resetForm"><p class="small muted">Törli az összes időszakot (tételek, felosztás, utalások) és a vízóra-leolvasásokat. Nem vonható vissza. A hozzáférések nem változnak.</p>
+    <label class="field"><span class="l">A megerősítéshez írd be: TÖRLÉS</span><input type="text" name="confirm" autocomplete="off" required></label>
+    <div class="field"><label class="row small"><input type="checkbox" name="settings"> A tulajdoni hányadot és a lakók számát is törlöm</label></div>
+    <div class="btns one"><button class="danger" type="submit">Minden adat törlése</button></div></form>
   ${!D.periods.length ? `<h2>Régi adatok betöltése (egyszeri)</h2>
   <form class="card" id="importForm"><p class="small muted">Csak üres elszámolóba: a hányad, a létszám, a leolvasások és a lezárt időszakok egy JSON fájlból. A régi utalások kiegyenlítettként kerülnek be.</p>
     <label class="field"><span class="l">Fájl</span><input type="file" name="file" accept="application/json,.json" required></label>
@@ -549,6 +555,13 @@ $app.addEventListener('submit', async e => {
       const fd = new FormData(form); await rpc('th_save_flats', { p: Object.fromEntries(FLATS.map(f => [f, num(fd.get(f))])) });
       await refresh('Tulajdoni hányad mentve.');
     }
+    if (form.id === 'resetForm') {
+      const fd = new FormData(form);
+      if (String(fd.get('confirm')).trim().toUpperCase() !== 'TÖRLÉS') throw new Error('A megerősítéshez írd be: TÖRLÉS');
+      if (!confirm('Biztosan törlöd az összes elszámolási adatot?')) { if (btn) btn.disabled = false; return; }
+      await rpc('th_reset', { p_confirm: 'TÖRLÉS', p_settings: fd.get('settings') === 'on' });
+      await refresh('Az elszámoló kiürítve.', '#/');
+    }
     if (form.id === 'importForm') {
       const file = new FormData(form).get('file');
       if (!file || !file.size) throw new Error('Válassz egy fájlt.');
@@ -572,8 +585,18 @@ $app.addEventListener('click', async e => {
     if (act === 'preclose' && p) { closing = transfers(balances(p.id)); render(); }
     if (act === 'cancelclose') { closing = null; render(); }
     if (act === 'close' && p) { b.disabled = true; await rpc('th_close_period', { p_id: p.id, p_transfers: closing }); closing = null; await refresh('Lezárva. Az utalások lent láthatók.'); }
+    if (act === 'delperiod' && p) {
+      if (!confirm(`Törlöd ezt az időszakot: ${p.name}? A tételei, a felosztás és az utalások is törlődnek. Nem vonható vissza.`)) return;
+      await load();   // friss adat: közben valaki jelölhetett utalást
+      const paid = transfersOf(p.id).filter(t => t.paid_at).length;
+      if (paid && !confirm(`Ebben az időszakban már ${paid} utalás megérkezett. Biztosan törlöd?`)) return;
+      b.disabled = true;
+      await rpc('th_delete_period', { p_id: p.id, p_force: paid > 0 }); closing = null;
+      await refresh('Időszak törölve: ' + p.name + '.', '#/idoszakok');
+    }
     if (act === 'reopen' && p) {
       if (!confirm('Újranyitod az időszakot? Az utalások törlődnek, és lezáráskor újraszámolódnak.')) return;
+      await load();   // friss adat: közben valaki jelölhetett utalást
       const paid = transfersOf(p.id).filter(t => t.paid_at).length;
       if (paid && !confirm(`Ebben az időszakban már ${paid} utalás megérkezett. Biztosan újranyitod?`)) return;
       await rpc('th_reopen_period', { p_id: p.id, p_force: paid > 0 }); await refresh('Újranyitva.');
