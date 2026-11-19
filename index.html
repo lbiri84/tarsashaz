@@ -94,7 +94,11 @@
   nav.tabs { position: fixed; left: 50%; transform: translateX(-50%); width: min(100%, 720px); bottom: 0; border-left: 1px solid var(--line); border-right: 1px solid var(--line); border-radius: 16px 16px 0 0; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: var(--bg); padding: 6px 0 calc(8px + env(safe-area-inset-bottom)); text-align: center; font-size: 12px; z-index: 5; }
   nav.tabs a { color: var(--fg-muted); text-decoration: none; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   nav.tabs a.on { color: var(--accent-text); font-weight: 600; }
-  nav.tabs .ic { font-size: 18px; line-height: 22px; }
+  nav.tabs .ic { width: 22px; height: 22px; margin-bottom: 2px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  nav.tabs.five { grid-template-columns: repeat(5, 1fr); }
+  nav.tabs.five a { font-size: 11px; }
+  .hist .row { min-height: 40px; }
+  .hist button.x { min-height: 36px; padding: 0 12px; margin-left: 8px; font-weight: 500; }
   footer { margin-top: 32px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--fg-muted); }
   footer a { color: var(--fg-muted); }
 </style>
@@ -104,10 +108,11 @@
 <main id="app"><p class="muted">Betöltés…</p></main>
 <footer><span><a href="https://laszlobiri.com/adatvedelem/">Adatkezelés</a></span><lb-auth></lb-auth></footer>
 <nav class="tabs" id="tabs" hidden>
-  <a href="#/" data-tab="home"><span class="ic" aria-hidden="true">⌂</span>Áttekintés</a>
-  <a href="#/idoszakok" data-tab="periods"><span class="ic" aria-hidden="true">☰</span>Elszámolások</a>
-  <a href="#/viz" data-tab="water"><span class="ic" aria-hidden="true">💧</span>Vízóra</a>
-  <a href="#/kimutatas" data-tab="stats"><span class="ic" aria-hidden="true">▤</span>Kimutatás</a>
+  <a href="#/" data-tab="home"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Áttekintés</a>
+  <a href="#/idoszakok" data-tab="periods"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Elszámolások</a>
+  <a href="#/viz" data-tab="water"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c3.5 4.2 6 7.6 6 10.5a6 6 0 0 1-12 0c0-2.9 2.5-6.3 6-10.5Z"/></svg>Vízóra</a>
+  <a href="#/kimutatas" data-tab="stats"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-5M12 16V7M17 16v-8"/></svg>Kimutatás</a>
+  <a href="#/beallitasok" data-tab="settings" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg>Beállítások</a>
 </nav>
 <script type="module" src="app.js"></script>
 </body>

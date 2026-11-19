@@ -221,8 +221,8 @@ function homeView() {
   const subs = u ? FLATS.reduce((a, f) => a + u.use[f], 0) : 0;
   return `${msg ? msgEl() : ''}${!ME.flat && !ME.manager ? '<div class="warn">A fiókod még nincs lakáshoz rendelve. Szólj a kezelőnek.</div>' : ''}
   ${hero}
-  ${ME.manager ? `<div class="btns">${op ? `<a class="btn p" href="#/tetel/uj">+ Új tétel</a>` : `<a class="btn p" href="#/idoszakok">Új időszak</a>`}<a class="btn" href="#/viz/uj">Vízóra-leolvasás</a></div>` : ''}
-  ${ME.manager && !D.periods.length ? '<div class="warn">Az elszámoló még üres. A régi adatokat a <a href="#/beallitasok">Beállítások</a> oldalon töltheted be, vagy indíts egy új időszakot.</div>' : ''}
+  ${ME.manager ? `<div class="btns one">${op ? `<a class="btn p" href="#/tetel/uj">+ Új tétel</a>` : `<a class="btn p" href="#/idoszakok">Új időszak</a>`}</div>` : ''}
+  ${ME.manager && !D.periods.length ? '<div class="warn">Az elszámoló még üres. A tulajdoni hányadot és a lakók számát a <a href="#/beallitasok">Beállítások</a> fülön adhatod meg, utána indíts egy új időszakot.</div>' : ''}
   <h2>Nyitott elszámolás</h2>
   ${op ? `<a class="card" href="#/idoszak/${op.id}"><div class="row"><b>${esc(op.name)}</b><span class="pill open sp">nyitott</span></div>
     <div class="small muted">${itemsOf(op.id).length} tétel · összesen <span class="num">${ft(itemsOf(op.id).reduce((a, i) => a + i.amount, 0))}</span></div>
@@ -387,8 +387,7 @@ function readingView() {
 function statsView(year) {
   const years = [...new Set(D.periods.map(p => p.starts_on.slice(0, 4)))].sort().reverse();
   const y = year || years[0];
-  const setLink = ME.manager ? '<h2>Beállítások</h2><div class="btns one"><a class="btn" href="#/beallitasok">Tulajdoni hányad, lakók száma, régi adatok</a></div>' : '';
-  if (!y) return `<h1>Kimutatás</h1><p class="muted">Még nincs adat.</p>${setLink}`;
+  if (!y) return `<h1>Kimutatás</h1><p class="muted">Még nincs adat.</p>`;
   const pids = new Set(D.periods.filter(p => p.starts_on.startsWith(y)).map(p => p.id));
   const its = D.items.filter(i => pids.has(i.period_id));
   const t = Object.fromEntries(FLATS.map(f => [f, Object.fromEntries(GROUPS.map(g => [g[0], 0]))]));
@@ -415,31 +414,22 @@ function statsView(year) {
   <div class="card small"><div class="row"><span>Összes közös költség ${y}-ben</span><b class="sp num">${ft(its.reduce((a, i) => a + i.amount, 0))}</b></div></div>
   ${garden.length ? `<h2>Kerti csap (a főmérő és a lakások különbsége)</h2><div class="card"><div class="vbars">${garden.map(g => `<div><span class="num">${m3(g[1])}</span><b style="height:${(g[1] / gmax * 100).toFixed(0)}%"></b></div>`).join('')}</div>
     <div class="vlab">${garden.map(g => `<span>${new Date(g[0] + 'T12:00:00').toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })}</span>`).join('')}</div></div>` : ''}
-  ${setLink}`;
+`;
 }
 
 function settingsView() {
   const r = residentsAt(today());
   const hist = [...new Set(D.residents.map(x => x.valid_from))].sort().reverse();
-  return `<a class="back" href="#/kimutatas">‹ Kimutatás</a><h1>Beállítások</h1>
+  return `<h1>Beállítások</h1>
   ${msgEl()}
-  <h2>Tulajdoni hányad (tízezred, összesen 10 000)</h2>
+  <h2>Tulajdoni hányad (tízezred, összesen 10&nbsp;000)</h2>
   <form class="card" id="flatsForm"><div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="${f}" value="${share(f) ? groupStr(share(f)) : ''}" style="grid-column: span 3" aria-label="${f} tulajdoni hányad">`).join('')}</div>
     <div class="btns one"><button class="p" type="submit">Mentés</button></div></form>
   <h2>Lakók száma (a szemétdíjhoz)</h2>
   <form class="card" id="resForm"><label class="field"><span class="l">Ettől a naptól</span><input type="date" name="valid_from" value="${today()}" required></label>
     <div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="${f}" value="${r[f]}" style="grid-column: span 3" aria-label="${f} lakók száma">`).join('')}</div>
     <div class="btns one"><button class="p" type="submit">Mentés</button></div></form>
-  <h2>Minden adat törlése</h2>
-  <form class="card" id="resetForm"><p class="small muted">Törli az összes időszakot (tételek, felosztás, utalások) és a vízóra-leolvasásokat. Nem vonható vissza. A hozzáférések nem változnak.</p>
-    <label class="field"><span class="l">A megerősítéshez írd be: TÖRLÉS</span><input type="text" name="confirm" autocomplete="off" required></label>
-    <div class="field"><label class="row small"><input type="checkbox" name="settings"> A tulajdoni hányadot és a lakók számát is törlöm</label></div>
-    <div class="btns one"><button class="danger" type="submit">Minden adat törlése</button></div></form>
-  ${!D.periods.length ? `<h2>Régi adatok betöltése (egyszeri)</h2>
-  <form class="card" id="importForm"><p class="small muted">Csak üres elszámolóba: a hányad, a létszám, a leolvasások és a lezárt időszakok egy JSON fájlból. A régi utalások kiegyenlítettként kerülnek be.</p>
-    <label class="field"><span class="l">Fájl</span><input type="file" name="file" accept="application/json,.json" required></label>
-    <div class="btns one"><button class="p" type="submit">Betöltés</button></div></form>` : ''}
-  ${hist.length ? `<div class="card small">${hist.map(d => `<div class="row"><span>${day(d)}-tól</span><span class="sp num">${FLATS.map(f => D.residents.find(x => x.valid_from === d && x.flat === f)?.count ?? '–').join(' : ')}</span></div>`).join('')}</div>` : ''}`;
+  ${hist.length ? `<div class="card small hist">${hist.map(d => `<div class="row"><span>${day(d)}-tól</span><span class="sp num">${FLATS.map(f => D.residents.find(x => x.valid_from === d && x.flat === f)?.count ?? '–').join(' : ')}</span><button class="danger x" type="button" data-delres="${d}" aria-label="${day(d)}-tól érvényes létszám törlése">✕</button></div>`).join('')}</div>` : ''}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -460,7 +450,7 @@ function render() {
   else if (a === 'viz' && b === 'uj' && ME.manager) { html = readingView(); tab = 'water'; }
   else if (a === 'viz') { html = waterView(); tab = 'water'; }
   else if (a === 'kimutatas') { html = statsView(b); tab = 'stats'; }
-  else if (a === 'beallitasok' && ME.manager) { html = settingsView(); tab = 'stats'; }
+  else if (a === 'beallitasok' && ME.manager) { html = settingsView(); tab = 'settings'; }
   else html = homeView();
   $app.innerHTML = html;
   for (const t of document.querySelectorAll('#tabs a')) t.classList.toggle('on', t.dataset.tab === tab);
@@ -555,20 +545,6 @@ $app.addEventListener('submit', async e => {
       const fd = new FormData(form); await rpc('th_save_flats', { p: Object.fromEntries(FLATS.map(f => [f, num(fd.get(f))])) });
       await refresh('Tulajdoni hányad mentve.');
     }
-    if (form.id === 'resetForm') {
-      const fd = new FormData(form);
-      if (String(fd.get('confirm')).trim().toUpperCase() !== 'TÖRLÉS') throw new Error('A megerősítéshez írd be: TÖRLÉS');
-      if (!confirm('Biztosan törlöd az összes elszámolási adatot?')) { if (btn) btn.disabled = false; return; }
-      await rpc('th_reset', { p_confirm: 'TÖRLÉS', p_settings: fd.get('settings') === 'on' });
-      await refresh('Az elszámoló kiürítve.', '#/');
-    }
-    if (form.id === 'importForm') {
-      const file = new FormData(form).get('file');
-      if (!file || !file.size) throw new Error('Válassz egy fájlt.');
-      let p; try { p = JSON.parse(await file.text()); } catch { throw new Error('A fájl nem érvényes JSON.'); }
-      const n = await rpc('th_import', { p });
-      await refresh(`Betöltve: ${n} tétel.`, '#/idoszakok');
-    }
     if (form.id === 'resForm') {
       const fd = new FormData(form); await rpc('th_save_residents', { p_valid_from: fd.get('valid_from'), p_counts: Object.fromEntries(FLATS.map(f => [f, num(fd.get(f))])) });
       await refresh('Lakók száma mentve.');
@@ -578,7 +554,7 @@ $app.addEventListener('submit', async e => {
 });
 
 $app.addEventListener('click', async e => {
-  const b = e.target.closest('[data-act], [data-delreading]');
+  const b = e.target.closest('[data-act], [data-delreading], [data-delres]');
   if (!b) return;
   const act = b.dataset.act, p = D.periods.find(x => location.hash.includes(x.id));
   try {
@@ -609,6 +585,10 @@ $app.addEventListener('click', async e => {
       if (!confirm(`Törlöd: ${F.name}?`)) return;
       const pid = F.period_id; await rpc('th_delete_item', { p_id: F.id }); F = null; await refresh('Törölve.', '#/idoszak/' + pid);
     }
+    if (b.dataset.delres) {
+      if (!confirm(`Törlöd a(z) ${day(b.dataset.delres)}-tól érvényes létszámot?`)) return;
+      await rpc('th_delete_residents', { p_valid_from: b.dataset.delres }); await refresh('Létszám-bejegyzés törölve.');
+    }
     if (b.dataset.delreading) {
       if (!confirm('Törlöd ezt a leolvasást?')) return;
       await rpc('th_delete_reading', { p_id: b.dataset.delreading }); await refresh('Leolvasás törölve.');
@@ -627,7 +607,10 @@ window.addEventListener('hashchange', render);
   catch (e) { $app.innerHTML = `<p class="msg err">${esc(errText(e))}</p>`; return; }
   const meEl = document.getElementById('me');
   if (ME.flat || ME.manager) { meEl.textContent = [ME.flat, ME.manager ? 'kezelő' : ''].filter(Boolean).join(' · '); meEl.hidden = false; }
-  document.getElementById('tabs').hidden = false;
+  const tabs = document.getElementById('tabs');
+  tabs.querySelector('[data-tab=settings]').hidden = !ME.manager;
+  tabs.classList.toggle('five', ME.manager);
+  tabs.hidden = false;
   if (!user) say('Offline: a legutóbb betöltött adatok.');
   render();
 })();
