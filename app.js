@@ -186,13 +186,37 @@ function itemRow(it, link) {
     <span class="m">fizette: ${esc(it.paid_by)} · ${METHOD_TEXT[it.method]}${it.participants.length < 4 ? ' (' + it.participants.join(', ') + ')' : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></${tag}>`;
 }
 
+// A felosztás táblázata felosztási mód szerint csoportosítva: a csoport fejlécében az alap
+// (hányad, létszám), víznél tételenként a fogyasztás; csoportonként részösszeg.
+const GROUP_ORDER = [['viz', 'Vízfogyasztás szerint'], ['letszam', 'Lakók száma szerint'], ['hanyad', 'Tulajdoni hányad szerint'], ['egyenlo', 'Egyenlő részben'], ['kezi', 'Kézi felosztás']];
 function splitTable(pid) {
   const its = itemsOf(pid);
   if (!its.length) return '<p class="muted small">Még nincs tétel.</p>';
-  const tot = Object.fromEntries(FLATS.map(f => [f, 0]));
-  const rows = its.map(it => { const sh = sharesOf(it.id); FLATS.forEach(f => tot[f] += sh[f]);
-    return `<tr><td>${esc(it.name)}</td>${FLATS.map(f => `<td class="num">${sh[f] ? nf.format(sh[f]) : '–'}</td>`).join('')}</tr>`; }).join('');
-  return `<div class="scroll"><table><tr><th></th>${FLATS.map(f => `<th>${f}</th>`).join('')}</tr>${rows}
+  const per = D.periods.find(p => p.id === pid);
+  const zero = () => Object.fromEntries(FLATS.map(f => [f, 0]));
+  const tot = zero();
+  const cells = (o, cls = '') => FLATS.map(f => `<td class="num${cls}">${o[f] ? nf.format(o[f]) : '–'}</td>`).join('');
+  const basis = m => {
+    if (m === 'hanyad') return FLATS.map(f => nf.format(share(f))).join(' / ') + ' tízezred';
+    if (m === 'letszam') { const r = residentsAt(per?.starts_on || today()); return FLATS.map(f => r[f]).join(' : ') + ' fő'; }
+    if (m === 'egyenlo') return 'a beszálló lakások között';
+    if (m === 'kezi') return 'lakásonként megadva';
+    return 'a két leolvasás közötti fogyasztás arányában';
+  };
+  const rows = GROUP_ORDER.map(([m, title]) => {
+    const g = its.filter(it => it.method === m);
+    if (!g.length) return '';
+    const sub = zero();
+    const body = g.map(it => {
+      const sh = sharesOf(it.id); FLATS.forEach(f => { sub[f] += sh[f]; tot[f] += sh[f]; });
+      let note = it.participants.length < 4 ? 'csak ' + it.participants.join(', ') : '';
+      if (m === 'viz') { const u = waterUse(it.reading_from, it.reading_to); if (u) note = [FLATS.filter(f => it.participants.includes(f)).map(f => new Intl.NumberFormat('hu-HU', { maximumFractionDigits: 1 }).format(u.use[f])).join(' : ') + ' m³', note].filter(Boolean).join(', '); }
+      return `<tr><td>${esc(it.name)}${note ? `<div class="small muted">${esc(note)}</div>` : ''}</td>${cells(sh)}</tr>`;
+    }).join('');
+    return `<tr class="grp"><td colspan="5"><b>${title}</b> <span class="muted">· ${esc(basis(m))}</span></td></tr>${body}`
+      + (g.length > 1 ? `<tr class="sub"><td>Részösszeg</td>${cells(sub)}</tr>` : '');
+  }).join('');
+  return `<div class="scroll"><table class="split-t"><tr><th></th>${FLATS.map(f => `<th>${f}</th>`).join('')}</tr>${rows}
     <tr class="tot"><td>Összesen</td>${FLATS.map(f => `<td class="num">${nf.format(tot[f])}</td>`).join('')}</tr></table></div>`;
 }
 
