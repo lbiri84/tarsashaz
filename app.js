@@ -260,7 +260,8 @@ function chatText(p) {
 }
 
 let closing = null;   // a lezárás előnézete: [{from, to, amount}]
-let closeCustom = false, closePaid = false;   // egyedi utalások; már mind kiegyenlítve
+let closeCustom = false, closePaid = false;
+let editPeriod = false;   // az időszak nevének, kezdőnapjának, megjegyzésének szerkesztése   // egyedi utalások; már mind kiegyenlítve
 const TOL = 10;   // lakásonként ennyi Ft kerekítési eltérés engedett (az adatbázisban is)
 
 /** Lakásonként: (kapott − utalt) − egyenleg; 0, ha az utalások pontosan rendezik. */
@@ -291,8 +292,13 @@ function periodView(id) {
   const [st, cls] = periodState(p), its = itemsOf(p.id), trs = transfersOf(p.id), open = p.status === 'open';
   const canMark = t => ME.manager || (ME.flat && (t.from_flat === ME.flat || t.to_flat === ME.flat));
   return `<a class="back" href="#/idoszakok">‹ Elszámolások</a>
-  <h1>${esc(p.name)}</h1>
-  <div class="row small"><span class="pill ${cls}">${st}</span>${p.note ? `<span class="muted">${esc(p.note)}</span>` : ''}</div>
+  ${editPeriod && ME.manager ? `<form class="card" id="periodForm" style="margin-top:8px">
+    <label class="field"><span class="l">Az időszak neve</span><input type="text" name="name" maxlength="60" value="${esc(p.name)}" required></label>
+    <label class="field"><span class="l">Kezdete</span><input type="date" name="starts_on" value="${esc(p.starts_on)}" required></label>
+    <label class="field"><span class="l">Megjegyzés (nem kötelező)</span><input type="text" name="note" maxlength="300" value="${esc(p.note)}"></label>
+    <div class="btns"><button type="button" data-act="canceledit">Mégse</button><button class="p" type="submit">Mentés</button></div></form>`
+  : `<h1>${esc(p.name)}</h1>
+  <div class="row small"><span class="pill ${cls}">${st}</span>${p.note ? `<span class="muted">${esc(p.note)}</span>` : ''}${ME.manager ? '<button type="button" class="sp small-btn" data-act="editperiod">Szerkesztés</button>' : ''}</div>`}
   ${msgEl()}
   <h2>Tételek</h2>
   <div class="card" style="padding-top:2px;padding-bottom:2px">${its.length ? its.map(it => itemRow(it, ME.manager && open)).join('') : '<p class="muted small">Még nincs tétel.</p>'}</div>
@@ -460,7 +466,7 @@ function settingsView() {
 let route = '';
 function render() {
   const h = location.hash.replace(/^#/, '') || '/';
-  if (h !== route) { if (!h.startsWith('/tetel')) F = null; if (h !== '/viz/uj') R = null; closing = null; msg = ''; route = h; }
+  if (h !== route) { if (!h.startsWith('/tetel')) F = null; if (h !== '/viz/uj') R = null; closing = null; editPeriod = false; msg = ''; route = h; }
   const [, a, b] = h.split('/');
   let html, tab = 'home';
   if (a === 'idoszakok') { html = periodsView(); tab = 'periods'; }
@@ -576,6 +582,13 @@ $app.addEventListener('submit', async e => {
       const fd = new FormData(form); await rpc('th_save_flats', { p: Object.fromEntries(FLATS.map(f => [f, num(fd.get(f))])) });
       await refresh('Tulajdoni hányad mentve.');
     }
+    if (form.id === 'periodForm') {
+      const fd = new FormData(form), p = D.periods.find(x => location.hash.includes(x.id));
+      const name = String(fd.get('name')).trim();
+      if (!name) throw new Error('Adj meg egy nevet.');
+      await rpc('th_rename_period', { p_id: p.id, p_name: name, p_starts_on: fd.get('starts_on'), p_ends_on: p.ends_on, p_note: fd.get('note') });
+      editPeriod = false; await refresh('Mentve: ' + name + '.');
+    }
     if (form.id === 'resForm') {
       const fd = new FormData(form); await rpc('th_save_residents', { p_valid_from: fd.get('valid_from'), p_counts: Object.fromEntries(FLATS.map(f => [f, num(fd.get(f))])) });
       await refresh('Lakók száma mentve.');
@@ -595,6 +608,8 @@ $app.addEventListener('click', async e => {
     if (act === 'preclose' && p) { closing = transfers(balances(p.id)); closeCustom = false; closePaid = false; render(); }
     if (act === 'cancelclose') { closing = null; render(); }
     if (act === 'custom') { closeCustom = true; render(); }
+    if (act === 'editperiod') { editPeriod = true; render(); $app.querySelector('#periodForm [name=name]')?.focus(); }
+    if (act === 'canceledit') { editPeriod = false; render(); }
     if (act === 'addtr') { closing.push({ from: 'em-3', to: 'fsz-1', amount: 0 }); render(); }
     if (act === 'close' && p) {
       b.disabled = true;
