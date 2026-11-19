@@ -32,6 +32,28 @@ const day = d => d ? new Date(d + (String(d).length === 10 ? 'T12:00:00' : '')).
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomUUID();
 /** Beírt szám: a szóközök kimaradnak, a tizedesvessző is jó. Üres vagy hibás: NaN. */
+/** Szám ezres tagolással a beviteli mezőkbe ("48 620"; tizedesmezőben "1 284,5"). */
+function groupStr(v, dec = false) {
+  if (v == null || v === '') return '';
+  let s = typeof v === 'number' ? String(v).replace('.', ',') : String(v).replace(/[\s\u00a0]/g, '');
+  const neg = s.startsWith('-');
+  s = s.replace(/[^\d.,]/g, '');
+  const sep = dec ? s.search(/[.,]/) : -1;
+  let i = (sep >= 0 ? s.slice(0, sep) : s).replace(/[.,]/g, ''), d = sep >= 0 ? s.slice(sep + 1).replace(/[.,]/g, '') : null;
+  if (dec && typeof v !== 'number' && /^\d+\.\d+$/.test(String(v))) { [i, d] = String(v).split('.'); d = d.replace(/0+$/, '') || null; }
+  i = i.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return (neg ? '-' : '') + i + (d != null ? ',' + d : '');
+}
+/** Gépelés közben tagol, a kurzor a beírt számjegyek között a helyén marad. */
+function groupInput(el) {
+  const dec = el.inputMode === 'decimal', sig = c => (dec ? /[\d.,-]/ : /[\d-]/).test(c);
+  const v = el.value, pos = el.selectionStart ?? v.length;
+  const before = [...v.slice(0, pos)].filter(sig).length;
+  const out = groupStr(v, dec);
+  let k = 0, p = 0;
+  while (p < out.length && k < before) { if (sig(out[p])) k++; p++; }
+  if (out !== v) { el.value = out; el.setSelectionRange(p, p); }
+}
 const num = v => { const t = String(v ?? '').replace(/[\s\u00a0]/g, '').replace(',', '.'); return t === '' || t === '-' ? NaN : Number(t); };
 
 /** Egész forintos felosztás súlyok szerint; a kerekítés után is pontosan kiadja az összeget. */
@@ -296,14 +318,14 @@ function itemView() {
   <form id="itemForm" novalidate>
   <label class="field"><span class="l">Megnevezés</span><input type="text" name="name" maxlength="80" value="${esc(F.name)}" required></label>
   <div class="field"><span class="l">Kategória</span>${seg('category', CATS, F.category)}</div>
-  <label class="field"><span class="l">Összeg (Ft; visszatérítés: negatív)</span><input type="text" name="amount" inputmode="numeric" autocomplete="off" value="${esc(F.amount)}" required></label>
+  <label class="field"><span class="l">Összeg (Ft; visszatérítés: negatív)</span><input type="text" name="amount" inputmode="numeric" autocomplete="off" value="${esc(groupStr(F.amount))}" required></label>
   <div class="field"><span class="l">Ki fizette?</span>${seg('paid_by', Object.fromEntries(FLATS.map(f => [f, f])), F.paid_by)}</div>
   <div class="field"><span class="l">Ki száll be?</span>${seg('participants', Object.fromEntries(FLATS.map(f => [f, f])), F.participants, true)}</div>
   <div class="field"><span class="l">Felosztás</span>${seg('method', Object.fromEntries(Object.entries(METHODS).filter(([k]) => k !== 'atvett' || F.method === 'atvett')), F.method)}</div>
   ${F.method === 'viz' ? `<div class="field grid2"><label class="field"><span class="l">Leolvasás: ettől</span><select name="reading_from">${rOpts}</select></label>
     <label class="field"><span class="l">eddig</span><select name="reading_to">${rOpts}</select></label></div>
     ${wu && wu.main != null ? `<p class="small muted">Főmérő: ${m3(wu.main)}, lakások: ${m3(FLATS.reduce((a, f) => a + wu.use[f], 0))}, kerti csap: ${m3(wu.main - FLATS.reduce((a, f) => a + wu.use[f], 0))}. A kerti rész a lakások fogyasztásának arányában oszlik.</p>` : ''}${gaps}` : ''}
-  ${F.method === 'kezi' ? `<div class="field"><span class="l">Lakásonként (Ft)</span><div class="grid4">${FLATS.filter(f => F.participants.includes(f)).map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="m_${f}" value="${esc(F.manual[f])}" style="grid-column: span 3">`).join('')}</div></div>` : ''}
+  ${F.method === 'kezi' ? `<div class="field"><span class="l">Lakásonként (Ft)</span><div class="grid4">${FLATS.filter(f => F.participants.includes(f)).map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="m_${f}" value="${esc(groupStr(F.manual[f]))}" style="grid-column: span 3">`).join('')}</div></div>` : ''}
   <div class="card"><div class="small muted" style="margin-bottom:8px">${error ? `<span class="msg err">${esc(error)}</span>` : 'Így oszlik meg' + (info ? ` (${esc(info)})` : '')}</div>
     <div class="split">${FLATS.map(f => `<b>${f}</b><div class="bar" style="width:${Math.round(Math.abs(shares[f]) / max * 100)}%${shares[f] ? '' : ';opacity:.2'}"></div><span class="num r">${ft(shares[f])}</span>`).join('')}</div>
     <div class="small ${total === amt ? 'muted' : 'msg err'}" style="margin-top:8px">${total === amt ? `Pontosan ${ft(amt)}.` : `A részek összege ${ft(total)}, a tétel ${ft(amt)}.`}</div></div>
@@ -349,7 +371,7 @@ function readingView() {
   const warns = [];
   for (const f of FLATS) if (!isNaN(d(MCOL[f])) && d(MCOL[f]) < 0) warns.push(`A(z) ${f} állása kisebb, mint az előző: elírás lehet.`);
   if (!isNaN(d('main')) && subs > d('main') + 0.001) warns.push('A lakások összesen többet fogyasztottak, mint a főmérő: valamelyik szám elírás lehet.');
-  const line = (k, label) => `<b>${label}</b><span class="r muted num">${last && last[k] != null ? nf.format(last[k]) : '–'}</span><input type="text" inputmode="decimal" autocomplete="off" name="${k}" value="${esc(v[k])}" aria-label="${label}"><span class="r num"><b>${isNaN(d(k)) ? '' : m3(d(k))}</b></span>`;
+  const line = (k, label) => `<b>${label}</b><span class="r muted num">${last && last[k] != null ? nf.format(last[k]) : '–'}</span><input type="text" inputmode="decimal" autocomplete="off" name="${k}" value="${esc(groupStr(v[k], true))}" aria-label="${label}"><span class="r num"><b>${isNaN(d(k)) ? '' : m3(d(k))}</b></span>`;
   return `<a class="back" href="#/viz">‹ Vízóra</a><h1>Leolvasás</h1>
   <form id="readingForm" novalidate>
   <label class="field"><span class="l">A leolvasás napja</span><input type="date" name="read_on" value="${esc(v.read_on)}" required></label>
@@ -401,7 +423,7 @@ function settingsView() {
   return `<a class="back" href="#/kimutatas">‹ Kimutatás</a><h1>Beállítások</h1>
   ${msgEl()}
   <h2>Tulajdoni hányad (tízezred, összesen 10 000)</h2>
-  <form class="card" id="flatsForm"><div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="${f}" value="${share(f) || ''}" style="grid-column: span 3" aria-label="${f} tulajdoni hányad">`).join('')}</div>
+  <form class="card" id="flatsForm"><div class="grid4">${FLATS.map(f => `<b>${f}</b><input type="text" inputmode="numeric" autocomplete="off" name="${f}" value="${share(f) ? groupStr(share(f)) : ''}" style="grid-column: span 3" aria-label="${f} tulajdoni hányad">`).join('')}</div>
     <div class="btns one"><button class="p" type="submit">Mentés</button></div></form>
   <h2>Lakók száma (a szemétdíjhoz)</h2>
   <form class="card" id="resForm"><label class="field"><span class="l">Ettől a naptól</span><input type="date" name="valid_from" value="${today()}" required></label>
@@ -467,6 +489,7 @@ function readItemForm(form) {
 
 // Űrlapmezők változása: az előnézet frissül (a fókusz és a kurzor megmarad).
 $app.addEventListener('input', e => {
+  if (e.target.inputMode === 'numeric' || e.target.inputMode === 'decimal') groupInput(e.target);
   const form = e.target.closest('form');
   if (form?.id === 'itemForm') {
     readItemForm(form);
