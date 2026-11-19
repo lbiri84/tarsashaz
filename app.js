@@ -12,10 +12,10 @@ import { supabase as sb } from 'https://laszlobiri.com/lib/v1/client.js';
 // ---------------------------------------------------------------------------
 // Állandók és segédfüggvények
 // ---------------------------------------------------------------------------
-export const FLATS = ['fsz-1', 'fsz-2', 'em-3', 'em-4'];
+const FLATS = ['fsz-1', 'fsz-2', 'em-3', 'em-4'];
 const CATS = { viz: 'Víz', csatorna: 'Csatorna', szemet: 'Szemét', villany: 'Villany', egyeb: 'Egyéb' };
-const METHODS = { hanyad: 'Tulajdoni hányad', letszam: 'Lakók száma', viz: 'Vízfogyasztás', egyenlo: 'Egyenlő', kezi: 'Kézi', atvett: 'Átvett' };
-const METHOD_TEXT = { hanyad: 'tulajdoni hányad szerint', letszam: 'lakók száma szerint', viz: 'vízfogyasztás szerint', egyenlo: 'egyenlő részben', kezi: 'kézi felosztás', atvett: 'a régi elszámolásból' };
+const METHODS = { hanyad: 'Tulajdoni hányad', letszam: 'Lakók száma', viz: 'Vízfogyasztás', egyenlo: 'Egyenlő', kezi: 'Kézi' };
+const METHOD_TEXT = { hanyad: 'tulajdoni hányad szerint', letszam: 'lakók száma szerint', viz: 'vízfogyasztás szerint', egyenlo: 'egyenlő részben', kezi: 'kézi felosztás' };
 // A kimutatás négy csoportja (a víz és a csatorna együtt) és a színük.
 const GROUPS = [['vizcs', 'Víz-csatorna', 'var(--s-viz)'], ['szemet', 'Szemét', 'var(--s-szemet)'], ['villany', 'Villany', 'var(--s-villany)'], ['egyeb', 'Egyéb', 'var(--s-egyeb)']];
 const groupOf = c => (c === 'viz' || c === 'csatorna' ? 'vizcs' : c);
@@ -57,7 +57,7 @@ function groupInput(el) {
 const num = v => { const t = String(v ?? '').replace(/[\s\u00a0]/g, '').replace(',', '.'); return t === '' || t === '-' ? NaN : Number(t); };
 
 /** Egész forintos felosztás súlyok szerint; a kerekítés után is pontosan kiadja az összeget. */
-export function split(amount, weights) {
+function split(amount, weights) {
   const keys = FLATS.filter(f => (weights[f] || 0) > 0);
   const W = keys.reduce((a, f) => a + weights[f], 0);
   const out = Object.fromEntries(FLATS.map(f => [f, 0]));
@@ -73,7 +73,7 @@ export function split(amount, weights) {
 }
 
 /** A legkevesebb utalás: a tartozók a követelőknek, a legnagyobbakkal kezdve. */
-export function transfers(bal) {
+function transfers(bal) {
   const cred = FLATS.filter(f => bal[f] > 0).map(f => [f, bal[f]]).sort((a, b) => b[1] - a[1]);
   const debt = FLATS.filter(f => bal[f] < 0).map(f => [f, -bal[f]]).sort((a, b) => b[1] - a[1]);
   const out = [];
@@ -350,7 +350,7 @@ function itemView() {
   <label class="field"><span class="l">Összeg (Ft; visszatérítés: negatív)</span><input type="text" name="amount" inputmode="numeric" autocomplete="off" value="${esc(groupStr(F.amount))}" required></label>
   <div class="field"><span class="l">Ki fizette?</span>${seg('paid_by', Object.fromEntries(FLATS.map(f => [f, f])), F.paid_by)}</div>
   <div class="field"><span class="l">Ki száll be?</span>${seg('participants', Object.fromEntries(FLATS.map(f => [f, f])), F.participants, true)}</div>
-  <div class="field"><span class="l">Felosztás <a class="q" href="#/sugo/felosztas" aria-label="Hogyan számol a felosztás?">?</a></span>${seg('method', Object.fromEntries(Object.entries(METHODS).filter(([k]) => k !== 'atvett' || F.method === 'atvett')), F.method)}</div>
+  <div class="field"><span class="l">Felosztás <a class="q" href="#/sugo/felosztas" aria-label="Hogyan számol a felosztás?">?</a></span>${seg('method', METHODS, F.method)}</div>
   ${F.method === 'viz' ? `<div class="field grid2"><label class="field"><span class="l">Leolvasás: ettől</span><select name="reading_from">${rOpts}</select></label>
     <label class="field"><span class="l">eddig</span><select name="reading_to">${rOpts}</select></label></div>
     ${wu && wu.main != null ? `<p class="small muted">Főmérő: ${m3(wu.main)}, lakások: ${m3(FLATS.reduce((a, f) => a + wu.use[f], 0))}, kerti csap: ${m3(wu.main - FLATS.reduce((a, f) => a + wu.use[f], 0))}. A kerti rész a lakások fogyasztásának arányában oszlik.</p>` : ''}${gaps}` : ''}
@@ -473,7 +473,7 @@ function helpView() {
   <h2 id="h-kategoriak">Kategóriák</h2>
   <p>A víz, csatorna, szemét, villany és egyéb csak csoportosítás a kimutatáshoz; hogy ki mennyit fizet, azt a felosztás módja határozza meg.</p>
   <h2 id="h-jogok">Ki mit tehet</h2>
-  <p>A kezelő rögzíti a tételeket és a leolvasásokat, lezárja és szükség esetén újranyitja az időszakot, és ő állítja be a tulajdoni hányadot és a lakók számát. A lakók mindent látnak, és a saját utalásukat jelölhetik. Neveket az oldal nem tárol: mindenki lakásként szerepel.</p>
+  <p>A kezelő (az oldal gazdája) rögzíti a tételeket és a leolvasásokat, lezárja és szükség esetén újranyitja az időszakot, és ő állítja be a tulajdoni hányadot és a lakók számát. A lakók mindent látnak, és a saját utalásukat jelölhetik. Neveket az oldal nem tárol: mindenki lakásként szerepel.</p>
   </div>`;
 }
 
