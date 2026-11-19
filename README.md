@@ -15,3 +15,4 @@ lezáráskor a legkevesebb utalás; vízóra-leolvasások; kimutatások.
   `scripts/tarsashaz-smoke.mjs`). Olvasni a társasház oldal jogával lehet, írni csak a
   kezelő tud; az utalást az utaló és a fogadó lakás is jelölheti.
 - A repóba nem kerül elszámolási adat.
+- Kiadáskor az `index.html`-ben az `app.js?v=` számát növelni kell, különben a böngésző (főleg mobilon) még percekig a régi `app.js`-t használhatja.
