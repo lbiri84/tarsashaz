@@ -260,6 +260,31 @@ function chatText(p) {
 }
 
 let closing = null;   // a lezárás előnézete: [{from, to, amount}]
+let closeCustom = false, closePaid = false;   // egyedi utalások; már mind kiegyenlítve
+const TOL = 10;   // lakásonként ennyi Ft kerekítési eltérés engedett (az adatbázisban is)
+
+/** Lakásonként: (kapott − utalt) − egyenleg; 0, ha az utalások pontosan rendezik. */
+function transferDiff(pid, list) {
+  const bal = balances(pid);
+  return Object.fromEntries(FLATS.map(f => [f, list.reduce((a, t) => a + (t.to === f ? t.amount : 0) - (t.from === f ? t.amount : 0), 0) - bal[f]]));
+}
+const diffText = d => FLATS.filter(f => d[f]).map(f => `${f}: ${sft(d[f])}\u00a0Ft`).join(', ');
+
+function closingCard(p) {
+  const valid = closing.every(t => t.from !== t.to && t.amount > 0);
+  const d = transferDiff(p.id, closing), over = FLATS.some(f => Math.abs(d[f]) > TOL), any = FLATS.some(f => d[f]);
+  const sel = (i, k, v) => `<select data-tr-i="${i}" data-tr-k="${k}" aria-label="${k === 'from' ? 'utaló' : 'fogadó'} lakás">${FLATS.map(f => `<option${f === v ? ' selected' : ''}>${f}</option>`).join('')}</select>`;
+  const rows = closeCustom
+    ? closing.map((t, i) => `<div class="trx">${sel(i, 'from', t.from)}<span class="muted">→</span>${sel(i, 'to', t.to)}<input type="text" inputmode="numeric" autocomplete="off" data-tr-i="${i}" data-tr-k="amount" value="${esc(groupStr(t.amount))}" aria-label="összeg"><button type="button" class="danger x" data-deltr="${i}" aria-label="Utalás törlése">✕</button></div>`).join('')
+      + '<div class="btns one"><button type="button" data-act="addtr">+ Utalás</button></div>'
+    : (closing.length ? closing.map(t => `<div class="tr"><span class="tag">${t.from}</span><span class="muted">→</span><span class="tag" style="justify-self:start">${t.to}</span><b class="num">${ft(t.amount)}</b></div>`).join('') : '<p class="small">Nincs szükség utalásra.</p>');
+  return `<div class="card"><b>Lezárás előtt</b><p class="small muted">${closeCustom ? 'Add meg a valóban megtörtént utalásokat.' : 'Ezek az utalások rendezik az időszakot (a legkevesebb utalással).'} Lezárás után a tételek nem módosíthatók.</p>
+    ${rows}
+    ${closeCustom ? `<p class="small ${over || !valid ? 'msg err' : 'muted'}">${!valid ? 'Minden utalás két különböző lakás között, pozitív összeggel.' : !any ? 'Pontosan rendezi az egyenlegeket.' : over ? `Túl nagy eltérés (legfeljebb ${TOL} Ft lakásonként): ${diffText(d)}.` : `Kerekítési eltérés: ${diffText(d)}.`}</p>` : ''}
+    <div class="field"><label class="row small"><input type="checkbox" data-act="closepaid"${closePaid ? ' checked' : ''}> Már mind kiegyenlítve (az utalások beérkezettként kerülnek be)</label></div>
+    ${closeCustom ? '' : '<div class="btns one"><button type="button" data-act="custom">Utalások módosítása</button></div>'}
+    <div class="btns"><button data-act="cancelclose">Mégse</button><button class="p" data-act="close"${over || !valid ? ' disabled' : ''}>Lezárás</button></div></div>`;
+}
 function periodView(id) {
   const p = D.periods.find(x => x.id === id);
   if (!p) return '<p class="muted">Nincs ilyen időszak.</p>';
@@ -272,11 +297,10 @@ function periodView(id) {
   <h2>Tételek</h2>
   <div class="card" style="padding-top:2px;padding-bottom:2px">${its.length ? its.map(it => itemRow(it, ME.manager && open)).join('') : '<p class="muted small">Még nincs tétel.</p>'}</div>
   ${ME.manager && open ? `<div class="btns"><a class="btn" href="#/tetel/uj">+ Új tétel</a><button class="p" data-act="preclose"${its.length ? '' : ' disabled'}>Lezárás, utalások</button></div>` : ''}
-  ${closing ? `<div class="card"><b>Lezárás előtt</b><p class="small muted">Ezek az utalások rendezik az időszakot. Lezárás után a tételek nem módosíthatók.</p>
-    ${closing.length ? closing.map(t => `<div class="tr"><span class="tag">${t.from}</span><span class="muted">→</span><span class="tag" style="justify-self:start">${t.to}</span><b class="num">${ft(t.amount)}</b></div>`).join('') : '<p class="small">Nincs szükség utalásra.</p>'}
-    <div class="btns"><button data-act="cancelclose">Mégse</button><button class="p" data-act="close">Lezárás</button></div></div>` : ''}
+  ${closing ? closingCard(p) : ''}
   <h2>Felosztás</h2><div class="card">${splitTable(p.id)}</div>
   <h2>Egyenlegek</h2><div class="card">${balanceTable(p.id)}</div>
+  ${!open && FLATS.some(f => transferDiff(p.id, trs.map(t => ({ from: t.from_flat, to: t.to_flat, amount: t.amount })))[f]) ? `<p class="small muted">Kerekítési eltérés az utalásokban: ${diffText(transferDiff(p.id, trs.map(t => ({ from: t.from_flat, to: t.to_flat, amount: t.amount }))))}.</p>` : ''}
   ${!open ? `<h2>Utalások</h2><div class="card" style="padding-top:2px;padding-bottom:2px">${trs.length ? trs.map(t => `<label class="tr"><span class="tag">${t.from_flat}</span><span class="muted">→</span><span class="tag" style="justify-self:start">${t.to_flat}</span>
       <span class="row"><b class="num">${ft(t.amount)}</b><input type="checkbox" data-paid="${t.id}"${t.paid_at ? ' checked' : ''}${canMark(t) ? '' : ' disabled'} aria-label="${t.from_flat} → ${t.to_flat}: megérkezett"></span></label>`).join('') : '<p class="small muted">Nem volt szükség utalásra.</p>'}</div>
     <p class="small muted">A pipát az utaló vagy a fogadó lakás teheti be, amikor az utalás megérkezett.</p>` : ''}
@@ -484,6 +508,13 @@ function readItemForm(form) {
 // Űrlapmezők változása: az előnézet frissül (a fókusz és a kurzor megmarad).
 $app.addEventListener('input', e => {
   if (e.target.inputMode === 'numeric' || e.target.inputMode === 'decimal') groupInput(e.target);
+  if (e.target.dataset.trK === 'amount' && closing) {
+    const i = +e.target.dataset.trI, pos = e.target.selectionStart;
+    closing[i].amount = Math.round(num(e.target.value) || 0); render();
+    const el = $app.querySelector(`[data-tr-i="${i}"][data-tr-k="amount"]`);
+    if (el) { el.focus(); el.setSelectionRange(pos, pos); }
+    return;
+  }
   const form = e.target.closest('form');
   if (form?.id === 'itemForm') {
     readItemForm(form);
@@ -500,6 +531,7 @@ $app.addEventListener('input', e => {
   }
 });
 $app.addEventListener('change', async e => {
+  if (e.target.dataset.trK && e.target.dataset.trK !== 'amount' && closing) { closing[+e.target.dataset.trI][e.target.dataset.trK] = e.target.value; render(); return; }
   if (e.target.matches('select') && e.target.closest('#itemForm')) { readItemForm(e.target.form); render(); }
   if (e.target.name === 'year') location.hash = '#/kimutatas/' + e.target.value;
   const pid = e.target.dataset.paid;
@@ -553,13 +585,22 @@ $app.addEventListener('submit', async e => {
 });
 
 $app.addEventListener('click', async e => {
+  if (e.target.dataset.act === 'closepaid') { closePaid = e.target.checked; return; }
+  const dt = e.target.closest('[data-deltr]');
+  if (dt) { closing.splice(+dt.dataset.deltr, 1); render(); return; }
   const b = e.target.closest('[data-act], [data-delreading], [data-delres]');
   if (!b) return;
   const act = b.dataset.act, p = D.periods.find(x => location.hash.includes(x.id));
   try {
-    if (act === 'preclose' && p) { closing = transfers(balances(p.id)); render(); }
+    if (act === 'preclose' && p) { closing = transfers(balances(p.id)); closeCustom = false; closePaid = false; render(); }
     if (act === 'cancelclose') { closing = null; render(); }
-    if (act === 'close' && p) { b.disabled = true; await rpc('th_close_period', { p_id: p.id, p_transfers: closing }); closing = null; await refresh('Lezárva. Az utalások lent láthatók.'); }
+    if (act === 'custom') { closeCustom = true; render(); }
+    if (act === 'addtr') { closing.push({ from: 'em-3', to: 'fsz-1', amount: 0 }); render(); }
+    if (act === 'close' && p) {
+      b.disabled = true;
+      await rpc('th_close_period', { p_id: p.id, p_transfers: closing.filter(t => t.amount > 0), p_tolerance: closeCustom ? TOL : 0, p_paid: closePaid });
+      closing = null; await refresh(closePaid ? 'Lezárva, az utalások kiegyenlítve.' : 'Lezárva. Az utalások lent láthatók.');
+    }
     if (act === 'delperiod' && p) {
       if (!confirm(`Törlöd ezt az időszakot: ${p.name}? A tételei, a felosztás és az utalások is törlődnek. Nem vonható vissza.`)) return;
       await load();   // friss adat: közben valaki jelölhetett utalást
