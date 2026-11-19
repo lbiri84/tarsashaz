@@ -226,7 +226,7 @@ function homeView() {
   ${op ? `<a class="card" href="#/idoszak/${op.id}"><div class="row"><b>${esc(op.name)}</b><span class="pill open sp">nyitott</span></div>
     <div class="small muted">${itemsOf(op.id).length} tétel · összesen <span class="num">${ft(itemsOf(op.id).reduce((a, i) => a + i.amount, 0))}</span></div>
     <div style="margin-top:8px">${balanceTable(op.id)}</div></a>` : '<p class="muted">Nincs nyitott időszak.</p>'}
-  ${op && itemsOf(op.id).length ? `<h2>Utalások</h2>
+  ${op && itemsOf(op.id).length ? `<h2>Utalások <a class="q" href="#/sugo/utalasok" aria-label="Hogyan jönnek ki az utalások?">?</a></h2>
   <div class="card" style="padding-top:2px;padding-bottom:2px">${plan.length ? plan.map(t => `<div class="tr"><span class="tag">${t.from}</span><span class="muted">→</span><span class="tag" style="justify-self:start">${t.to}</span><b class="num">${ft(t.amount)}</b></div>`).join('') : '<p class="small muted">Nincs szükség utalásra.</p>'}</div>
   <p class="small muted">A legkevesebb utalással, a mostani egyenlegek alapján. Amíg az időszak nyitott, csak javaslat: a lezáráskor véglegesül.</p>` : ''}`;
 }
@@ -350,7 +350,7 @@ function itemView() {
   <label class="field"><span class="l">Összeg (Ft; visszatérítés: negatív)</span><input type="text" name="amount" inputmode="numeric" autocomplete="off" value="${esc(groupStr(F.amount))}" required></label>
   <div class="field"><span class="l">Ki fizette?</span>${seg('paid_by', Object.fromEntries(FLATS.map(f => [f, f])), F.paid_by)}</div>
   <div class="field"><span class="l">Ki száll be?</span>${seg('participants', Object.fromEntries(FLATS.map(f => [f, f])), F.participants, true)}</div>
-  <div class="field"><span class="l">Felosztás</span>${seg('method', Object.fromEntries(Object.entries(METHODS).filter(([k]) => k !== 'atvett' || F.method === 'atvett')), F.method)}</div>
+  <div class="field"><span class="l">Felosztás <a class="q" href="#/sugo/felosztas" aria-label="Hogyan számol a felosztás?">?</a></span>${seg('method', Object.fromEntries(Object.entries(METHODS).filter(([k]) => k !== 'atvett' || F.method === 'atvett')), F.method)}</div>
   ${F.method === 'viz' ? `<div class="field grid2"><label class="field"><span class="l">Leolvasás: ettől</span><select name="reading_from">${rOpts}</select></label>
     <label class="field"><span class="l">eddig</span><select name="reading_to">${rOpts}</select></label></div>
     ${wu && wu.main != null ? `<p class="small muted">Főmérő: ${m3(wu.main)}, lakások: ${m3(FLATS.reduce((a, f) => a + wu.use[f], 0))}, kerti csap: ${m3(wu.main - FLATS.reduce((a, f) => a + wu.use[f], 0))}. A kerti rész a lakások fogyasztásának arányában oszlik.</p>` : ''}${gaps}` : ''}
@@ -445,6 +445,38 @@ function statsView(year) {
 `;
 }
 
+function helpView() {
+  const sh = FLATS.map(f => share(f) ? nf.format(share(f)) : '–').join(' / ');
+  const r = residentsAt(today());
+  return `<a class="back" href="#/" data-act="back">‹ Vissza</a>
+  <h1>Hogyan számol?</h1>
+  <div class="help">
+  <h2 id="h-idoszak">Időszakok</h2>
+  <p>A költségeket időszakonként (általában két hónap) számoljuk el. A nyitott időszakba kerülnek a tételek; lezáráskor kiszámolódnak az utalások, és az időszak nem módosítható tovább. Ha mindenki jelölte, hogy az utalása megérkezett, az időszak <b>rendezve</b> lesz. Hibát a kezelő újranyitással javíthat.</p>
+  <h2 id="h-felosztas">Felosztás</h2>
+  <p>Minden tételnél meg kell adni, hogyan oszlik el a lakások között:</p>
+  <ul>
+    <li><b>Tulajdoni hányad:</b> a lakások tulajdoni hányada szerint (tízezredben, jelenleg ${sh}). Ilyen például a közös villany és a biztosítás.</li>
+    <li><b>Lakók száma:</b> az időszak kezdetén érvényes létszám szerint (jelenleg ${FLATS.map(f => r[f]).join(' : ')}). Ilyen a szemétszállítás.</li>
+    <li><b>Vízfogyasztás:</b> két leolvasás között a lakások almérőinek fogyasztása szerint. A közös főmérő és a négy almérő különbsége a kerti csap fogyasztása; ez is ugyanebben az arányban oszlik, ezért a felosztáshoz a főmérő nem kell. Ilyen a víz- és a csatornadíj.</li>
+    <li><b>Egyenlő:</b> egyenlő részben.</li>
+    <li><b>Kézi:</b> lakásonként megadott összeg (például ha valaki más helyett fizetett).</li>
+  </ul>
+  <p><b>Ki száll be?</b> A választott mód csak a bepipált lakások között oszt: ha például csak em-3 és em-4 száll be, a tulajdoni hányad szerint fele-fele arányban fizetnek.</p>
+  <h2 id="h-kerekites">Kerekítés</h2>
+  <p>A részek egész forintra kerekítve, mindig pontosan kiadják a tétel összegét: a kerekítés után megmaradó forintokat azok a lakások kapják, amelyeknek a legnagyobb volt a törtrésze.</p>
+  <h2 id="h-egyenleg">Egyenleg</h2>
+  <p>Lakásonként: amit az időszakban kifizetett, mínusz az összes tétel rá eső része. A pozitív egyenlegű lakás kap, a negatív fizet; az egyenlegek összege mindig nulla.</p>
+  <h2 id="h-utalasok">Utalások</h2>
+  <p>A legkevesebb utalással: a legnagyobb tartozó fizet a legnagyobb követelőnek, amíg valamelyikük egyenlege nullára nem fut, és így tovább. Amíg az időszak nyitott, ez csak javaslat; a lezáráskor véglegesül. Ha az utalások már másképp történtek meg, a kezelő lezáráskor átírhatja őket (lakásonként legfeljebb 10 Ft kerekítési eltéréssel), és jelölheti, hogy már mind kiegyenlítve.</p>
+  <p>Az utalást az utaló vagy a fogadó lakás jelöli megérkezettnek.</p>
+  <h2 id="h-kategoriak">Kategóriák</h2>
+  <p>A víz, csatorna, szemét, villany és egyéb csak csoportosítás a kimutatáshoz; hogy ki mennyit fizet, azt a felosztás módja határozza meg.</p>
+  <h2 id="h-jogok">Ki mit tehet</h2>
+  <p>A kezelő rögzíti a tételeket és a leolvasásokat, lezárja és szükség esetén újranyitja az időszakot, és ő állítja be a tulajdoni hányadot és a lakók számát. A lakók mindent látnak, és a saját utalásukat jelölhetik. Neveket az oldal nem tárol: mindenki lakásként szerepel.</p>
+  </div>`;
+}
+
 function settingsView() {
   const r = residentsAt(today());
   const hist = [...new Set(D.residents.map(x => x.valid_from))].sort().reverse();
@@ -466,7 +498,7 @@ function settingsView() {
 let route = '';
 function render() {
   const h = location.hash.replace(/^#/, '') || '/';
-  if (h !== route) { if (!h.startsWith('/tetel')) F = null; if (h !== '/viz/uj') R = null; closing = null; editPeriod = false; msg = ''; route = h; }
+  if (h !== route) { if (!h.startsWith('/tetel') && !h.startsWith('/sugo')) F = null; if (h !== '/viz/uj') R = null; closing = null; editPeriod = false; msg = ''; route = h; }
   const [, a, b] = h.split('/');
   let html, tab = 'home';
   if (a === 'idoszakok') { html = periodsView(); tab = 'periods'; }
@@ -479,9 +511,11 @@ function render() {
   else if (a === 'viz') { html = waterView(); tab = 'water'; }
   else if (a === 'kimutatas') { html = statsView(b); tab = 'stats'; }
   else if (a === 'beallitasok' && ME.manager) { html = settingsView(); tab = 'settings'; }
+  else if (a === 'sugo') { html = helpView(); tab = ''; }
   else html = homeView();
   $app.innerHTML = html;
   for (const t of document.querySelectorAll('#tabs a')) t.classList.toggle('on', t.dataset.tab === tab);
+  if (a === 'sugo') { const el = b && document.getElementById('h-' + b); el ? el.scrollIntoView() : scrollTo(0, 0); }
   // a select-ek értéke (az innerHTML nem állítja)
   const rf = $app.querySelector('select[name=reading_from]'), rt = $app.querySelector('select[name=reading_to]');
   if (rf && F) rf.value = F.reading_from || ''; if (rt && F) rt.value = F.reading_to || '';
@@ -601,6 +635,7 @@ $app.addEventListener('click', async e => {
   if (e.target.dataset.act === 'closepaid') { closePaid = e.target.checked; return; }
   const dt = e.target.closest('[data-deltr]');
   if (dt) { closing.splice(+dt.dataset.deltr, 1); render(); return; }
+  if (e.target.closest('[data-act=back]') && history.length > 1) { e.preventDefault(); history.back(); return; }
   const b = e.target.closest('[data-act], [data-delreading], [data-delres]');
   if (!b) return;
   const act = b.dataset.act, p = D.periods.find(x => location.hash.includes(x.id));
