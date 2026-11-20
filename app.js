@@ -187,19 +187,19 @@ function itemRow(it, link) {
 }
 
 // A felosztás táblázata: felosztási módonként egy vékony fejléc (összegzés nélkül).
-const GROUP_ORDER = [['viz', 'Vízfogyasztás szerint'], ['letszam', 'Lakók száma szerint'], ['hanyad', 'Tulajdoni hányad szerint'], ['egyenlo', 'Egyenlő részben'], ['kezi', 'Kézi felosztás']];
+const GROUP_ORDER = [['viz', 'Felosztás vízhasználat alapján'], ['letszam', 'Felosztás létszám alapján'], ['hanyad', 'Felosztás tulajdoni hányad alapján'], ['egyenlo', 'Egyenlő felosztás'], ['kezi', 'Kézi felosztás']];
 function splitTable(pid) {
   const its = itemsOf(pid);
   if (!its.length) return '<p class="muted small">Még nincs tétel.</p>';
   const tot = Object.fromEntries(FLATS.map(f => [f, 0]));
   const row = it => { const sh = sharesOf(it.id); FLATS.forEach(f => tot[f] += sh[f]);
-    return `<tr><td>${esc(it.name)}</td>${FLATS.map(f => `<td class="num">${sh[f] ? nf.format(sh[f]) : '–'}</td>`).join('')}</tr>`; };
+    return `<tr><td>${esc(it.name)}</td><td class="num sum">${nf.format(it.amount)}</td>${FLATS.map(f => `<td class="num">${sh[f] ? nf.format(sh[f]) : '–'}</td>`).join('')}</tr>`; };
   const rows = GROUP_ORDER.map(([m, title]) => {
     const g = its.filter(it => it.method === m);
-    return g.length ? `<tr class="grp"><td colspan="5">${title}</td></tr>${g.map(row).join('')}` : '';
+    return g.length ? `<tr class="grp"><td colspan="6">${title}</td></tr>${g.map(row).join('')}` : '';
   }).join('');
-  return `<div class="scroll"><table class="split-t"><tr><th></th>${FLATS.map(f => `<th>${f}</th>`).join('')}</tr>${rows}
-    <tr class="tot"><td>Összesen</td>${FLATS.map(f => `<td class="num">${nf.format(tot[f])}</td>`).join('')}</tr></table></div>`;
+  return `<div class="scroll"><table class="split-t"><tr><th></th><th class="sum">Összesen</th>${FLATS.map(f => `<th>${f}</th>`).join('')}</tr>${rows}
+    <tr class="tot"><td>Összesen</td><td class="num sum">${nf.format(its.reduce((a, it) => a + it.amount, 0))}</td>${FLATS.map(f => `<td class="num">${nf.format(tot[f])}</td>`).join('')}</tr></table></div>`;
 }
 
 function balanceTable(pid) {
