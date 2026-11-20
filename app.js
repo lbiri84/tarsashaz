@@ -186,15 +186,76 @@ function itemRow(it, link) {
     <span class="m">fizette: ${esc(it.paid_by)} · ${METHOD_TEXT[it.method]}${it.participants.length < 4 ? ' (' + it.participants.join(', ') + ')' : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></${tag}>`;
 }
 
+const nf3 = new Intl.NumberFormat('hu-HU', { maximumFractionDigits: 3 });
+
+/** Hogyan jött ki egy lakás része egy tételből (a felugró szövege). */
+function explain(it, f) {
+  const sh = sharesOf(it.id)[f];
+  const head = `${it.name}: ${ft(it.amount)}`;
+  if (!it.participants.includes(f) || !sh) return `${head}\n${f} ebben nem száll be.`;
+  const parts = FLATS.filter(x => it.participants.includes(x));
+  let w = null, unit = '', basis = '';
+  if (it.method === 'hanyad') { w = Object.fromEntries(parts.map(x => [x, share(x)])); unit = ' tízezred'; basis = 'Tulajdoni hányad szerint'; }
+  if (it.method === 'letszam') {
+    const r = residentsAt(D.periods.find(p => p.id === it.period_id)?.starts_on || today());
+    w = Object.fromEntries(parts.map(x => [x, r[x]])); unit = ' fő'; basis = 'Lakók száma szerint';
+  }
+  if (it.method === 'egyenlo') {
+    const exact = it.amount / parts.length;
+    return `${head}\nEgyenlő részben, ${parts.length} lakás között\n${nf.format(it.amount)} / ${parts.length} = ${ft(sh)}${Number.isInteger(exact) ? '' : ' (kerekítve)'}`;
+  }
+  if (it.method === 'viz') {
+    const u = waterUse(it.reading_from, it.reading_to);
+    if (u) { w = Object.fromEntries(parts.map(x => [x, Math.max(0, u.use[x])])); unit = ' m³'; basis = `Vízfogyasztás szerint\n${day(u.from.read_on)} – ${day(u.to.read_on)}`; }
+  }
+  const W = w ? parts.reduce((a, x) => a + w[x], 0) : 0;
+  if (!w || !W) return `${head}\nKézi felosztás: ${f} része ${ft(sh)}`;
+  const exact = it.amount * w[f] / W;
+  return `${head}\n${basis}\n${f}: ${nf3.format(w[f])}${unit}, összesen: ${nf3.format(W)}${unit}\n`
+    + `${nf.format(it.amount)} × ${nf3.format(w[f])} / ${nf3.format(W)} = ${ft(sh)}${Number.isInteger(exact) ? '' : ' (kerekítve)'}`;
+}
+
+const cell = (n, text) => `<button type="button" class="cell num" data-exp="${esc(text)}">${n}</button>`;
+
 function splitTable(pid) {
   const its = itemsOf(pid);
   if (!its.length) return '<p class="muted small">Még nincs tétel.</p>';
   const tot = Object.fromEntries(FLATS.map(f => [f, 0]));
   const rows = its.map(it => { const sh = sharesOf(it.id); FLATS.forEach(f => tot[f] += sh[f]);
-    return `<tr><td>${esc(it.name)}</td>${FLATS.map(f => `<td class="num">${sh[f] ? nf.format(sh[f]) : '–'}</td>`).join('')}</tr>`; }).join('');
+    return `<tr><td>${esc(it.name)}</td>${FLATS.map(f => `<td class="num">${cell(sh[f] ? nf.format(sh[f]) : '–', explain(it, f))}</td>`).join('')}</tr>`; }).join('');
+  const totText = f => `${f} része összesen\n${its.filter(it => sharesOf(it.id)[f]).map(it => `${it.name}: ${ft(sharesOf(it.id)[f])}`).join('\n')}\n= ${ft(tot[f])}`;
   return `<div class="scroll"><table><tr><th></th>${FLATS.map(f => `<th>${f}</th>`).join('')}</tr>${rows}
-    <tr class="tot"><td>Összesen</td>${FLATS.map(f => `<td class="num">${nf.format(tot[f])}</td>`).join('')}</tr></table></div>`;
+    <tr class="tot"><td>Összesen</td>${FLATS.map(f => `<td class="num">${cell(nf.format(tot[f]), totText(f))}</td>`).join('')}</tr></table></div>
+    <p class="muted small hint">Egy számra mutatva vagy rákoppintva látszik, hogyan jött ki.</p>`;
 }
+
+// A felosztás felugrója: asztali gépen az egér alatt, telefonon koppintásra.
+const pop = Object.assign(document.createElement('div'), { id: 'pop', className: 'pop', hidden: true });
+pop.setAttribute('role', 'tooltip');
+document.body.append(pop);
+let popFor = null;
+function showPop(btn) {
+  popFor = btn; pop.textContent = btn.dataset.exp; pop.hidden = false;
+  const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - pw / 2), innerWidth - pw - 8);
+  const top = r.bottom + 6 + ph <= innerHeight - 8 ? r.bottom + 6 : Math.max(8, r.top - 6 - ph);
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+}
+function hidePop() { pop.hidden = true; popFor = null; }
+const canHover = matchMedia('(hover: hover) and (pointer: fine)');
+document.addEventListener('pointerover', e => { const b = e.target.closest?.('.cell'); if (b && canHover.matches) showPop(b); });
+document.addEventListener('pointerout', e => { const b = e.target.closest?.('.cell'); if (b && canHover.matches && !b.contains(e.relatedTarget)) hidePop(); });
+document.addEventListener('click', e => {
+  const b = e.target.closest?.('.cell');
+  if (b) { if (popFor === b && !canHover.matches) hidePop(); else showPop(b); return; }
+  if (!pop.contains(e.target)) hidePop();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hidePop(); });
+// Görgetéskor és átméretezéskor a felugró a számmal együtt mozog.
+const followPop = () => { if (popFor) popFor.isConnected ? showPop(popFor) : hidePop(); };
+addEventListener('scroll', followPop, { passive: true, capture: true });
+addEventListener('resize', followPop);
+addEventListener('hashchange', hidePop);
 
 function balanceTable(pid) {
   const bal = balances(pid);
